@@ -127,11 +127,22 @@ func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRespons
     fmt.Println("===== Received Lambda Function URL Request =====")
     fmt.Printf("Full Request: %+v\n", req)
 
+    // Convert LambdaFunctionURLRequest to APIGatewayProxyRequest
+    convertedReq := events.APIGatewayProxyRequest{
+        HTTPMethod: req.RequestContext.HTTP.Method,
+        PathParameters: map[string]string{
+            "code": req.PathParameters["code"],
+        },
+        QueryStringParameters: req.QueryStringParameters,
+        Headers:               req.Headers,
+        Body:                  req.Body,
+    }
+
     switch req.RequestContext.HTTP.Method {
     case "POST":
-        return shortenURL(req)
+        return shortenURL(convertedReq)
     case "GET":
-        return redirectURL(req)
+        return redirectURL(convertedReq)
     default:
         fmt.Println("Error: Unsupported HTTP Method ->", req.RequestContext.HTTP.Method)
         return events.APIGatewayProxyResponse{
@@ -140,6 +151,7 @@ func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRespons
         }, nil
     }
 }
+
 
 
 func main() {
