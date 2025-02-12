@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/rand"
 	"net/http"
 	"time"
@@ -37,16 +38,21 @@ func generateShortCode(length int) string {
 	for i := range code {
 		code[i] = charset[rand.Intn(len(charset))]
 	}
+	log.Println("Generated short code:", string(code))
 	return string(code)
 }
 
 func shortenURL(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	log.Println("Processing shortenURL request...")
+
 	var request ShortenRequest
 	if err := json.Unmarshal([]byte(req.Body), &request); err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest}, err
+		log.Println("Error parsing JSON request body:", err)
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest, Body: "Invalid JSON"}, err
 	}
 
 	if request.URL == "" {
+		log.Println("Missing URL in request")
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest, Body: "Missing URL"}, nil
 	}
 
@@ -57,9 +63,12 @@ func shortenURL(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRespon
 		CreatedAt: time.Now().Format(time.RFC3339),
 	}
 
+	log.Println("Generated short URL entry:", shortURL)
+
 	item, err := dynamodbattribute.MarshalMap(shortURL)
 	if err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError}, err
+		log.Println("Error marshaling item for DynamoDB:", err)
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Internal error"}, err
 	}
 
 	_, err = db.PutItem(&dynamodb.PutItemInput{
@@ -67,28 +76,45 @@ func shortenURL(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRespon
 		Item:      item,
 	})
 	if err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError}, err
+		log.Println("Error saving item to DynamoDB:", err)
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Database error"}, err
 	}
 
 	response := map[string]string{"short_url": fmt.Sprintf("https://u.1ms.my/r/%s", code)}
 	respBody, _ := json.Marshal(response)
 
+	log.Println("Successfully created short URL:", response)
+
 	return events.APIGatewayProxyResponse{StatusCode: http.StatusOK, Body: string(respBody)}, nil
 }
 
 func redirectURL(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	log.Println("Processing redirect request for code:", req.PathParameters["code"])
+
 	code := req.PathParameters["code"]
 
 	result, err := db.GetItem(&dynamodb.GetItemInput{
 		TableName: aws.String(tableName),
 		Key:       map[string]*dynamodb.AttributeValue{"Code": {S: aws.String(code)}},
 	})
-	if err != nil || result.Item == nil {
+	if err != nil {
+		log.Println("Error retrieving item from DynamoDB:", err)
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Database error"}, err
+	}
+
+	if result.Item == nil {
+		log.Println("Short URL not found for code:", code)
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusNotFound, Body: "URL not found"}, nil
 	}
 
 	var shortURL ShortURL
-	dynamodbattribute.UnmarshalMap(result.Item, &shortURL)
+	err = dynamodbattribute.UnmarshalMap(result.Item, &shortURL)
+	if err != nil {
+		log.Println("Error unmarshaling DynamoDB response:", err)
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Internal error"}, err
+	}
+
+	log.Println("Redirecting to:", shortURL.LongURL)
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusMovedPermanently,
@@ -97,16 +123,24 @@ func redirectURL(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 }
 
 func handler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	log.Println("Received request:", req.HTTPMethod, req.Path)
+
 	switch req.HTTPMethod {
 	case "POST":
 		return shortenURL(req)
 	case "GET":
 		return redirectURL(req)
 	default:
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusMethodNotAllowed}, nil
+		log.Println("Invalid request method:", req.HTTPMethod)
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusMethodNotAllowed,
+			Body:       "Method Not Allowed",
+		}, nil
 	}
 }
 
 func main() {
+	log.Println("Lambda function started...")
 	lambda.Start(handler)
 }
+
