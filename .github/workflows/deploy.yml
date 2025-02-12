@@ -1,0 +1,68 @@
+name: Build and Deploy Lambda Docker Image
+
+on:
+  push:
+    branches:
+      - main  # Trigger the workflow on push to the main branch
+    paths-ignore:
+      - logs_input/**
+      - logs_output/**
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Set up AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}  # Ensure this secret is defined
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          mask-password: false
+          registry-type: private
+          skip-logout: false
+
+      - name: Build Docker image
+        run: |
+          cd lambda  # Navigate to the lambda directory where the Dockerfile is located
+          docker buildx build --platform linux/amd64 --load -t ${{ secrets.ECR_REPOSITORY }} .
+
+      - name: Push Docker image to Amazon ECR
+        run: |
+          IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:latest"
+          docker tag ${{ secrets.ECR_REPOSITORY }}:latest $IMAGE_URI
+          docker push $IMAGE_URI
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Set up AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}  # Ensure this secret is defined
+
+      - name: Debug Lambda Function Name
+        run: |
+          echo "Lambda Function Name: ${{ secrets.LAMBDA_FUNCTION_NAME }}"  # Debugging the function name
+
+      - name: Deploy Docker image to AWS Lambda
+        run: |
+          IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:latest"
+          aws lambda update-function-code \
+            --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
+            --image-uri $IMAGE_URI
