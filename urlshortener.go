@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/google/uuid" // You can use any method to generate unique IDs
 )
 
 type ShortenRequest struct {
@@ -21,14 +22,16 @@ type ShortenRequest struct {
 }
 
 type ShortURL struct {
-	Code      string `json:"code"`
-	LongURL   string `json:"long_url"`
-	CreatedAt string `json:"created_at"`
+	ExecutionID string `json:"execution_id"` // Add ExecutionID to the struct
+	Code        string `json:"code"`
+	LongURL     string `json:"long_url"`
+	CreatedAt   string `json:"created_at"`
 }
 
 var db = dynamodb.New(session.Must(session.NewSession()))
 var tableName = "LongShortLinks"
 
+// Generate a random short code of specified length
 func generateShortCode(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	rand.Seed(time.Now().UnixNano())
@@ -40,6 +43,7 @@ func generateShortCode(length int) string {
 	return string(code)
 }
 
+// Handle shortening of URL
 func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Processing shortenURL request...")
 
@@ -54,11 +58,14 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest, Body: "Missing URL"}, nil
 	}
 
+	// Generate short code and set ExecutionID
 	code := generateShortCode(6)
+	executionID := uuid.New().String() // Generate unique ExecutionID
 	shortURL := ShortURL{
-		Code:      code,
-		LongURL:   request.URL,
-		CreatedAt: time.Now().Format(time.RFC3339),
+		ExecutionID: executionID, // Set ExecutionID
+		Code:        code,
+		LongURL:     request.URL,
+		CreatedAt:   time.Now().Format(time.RFC3339),
 	}
 
 	log.Println("Generated short URL entry:", shortURL)
@@ -69,76 +76,5 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Internal error"}, err
 	}
 
-	_, err = db.PutItem(&dynamodb.PutItemInput{
-		TableName: aws.String(tableName),
-		Item:      item,
-	})
-	if err != nil {
-		log.Println("Error saving item to DynamoDB:", err)
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Database error"}, err
-	}
-
-	response := map[string]string{"short_url": fmt.Sprintf("https://u.1ms.my/r/%s", code)}
-	respBody, _ := json.Marshal(response)
-
-	log.Println("Successfully created short URL:", response)
-
-	return events.APIGatewayProxyResponse{StatusCode: http.StatusOK, Body: string(respBody)}, nil
-}
-
-func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
-	// Access path from RequestContext, e.g., /r/{code}
-	log.Println("Processing redirect request for code:", req.RequestContext.HTTP.Path)
-
-	code := req.RequestContext.HTTP.Path
-
-	result, err := db.GetItem(&dynamodb.GetItemInput{
-		TableName: aws.String(tableName),
-		Key:       map[string]*dynamodb.AttributeValue{"Code": {S: aws.String(code)}},
-	})
-	if err != nil {
-		log.Println("Error retrieving item from DynamoDB:", err)
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Database error"}, err
-	}
-
-	if result.Item == nil {
-		log.Println("Short URL not found for code:", code)
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusNotFound, Body: "URL not found"}, nil
-	}
-
-	var shortURL ShortURL
-	err = dynamodbattribute.UnmarshalMap(result.Item, &shortURL)
-	if err != nil {
-		log.Println("Error unmarshaling DynamoDB response:", err)
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Internal error"}, err
-	}
-
-	log.Println("Redirecting to:", shortURL.LongURL)
-
-	return events.APIGatewayProxyResponse{
-		StatusCode: http.StatusMovedPermanently,
-		Headers:    map[string]string{"Location": shortURL.LongURL},
-	}, nil
-}
-
-func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
-	log.Println("Received request:", req)
-
-	switch req.RequestContext.HTTP.Method {
-	case "POST":
-		return shortenURL(req)
-	case "GET":
-		return redirectURL(req)
-	default:
-		log.Println("Unsupported method:", req.RequestContext.HTTP.Method)
-		return events.APIGatewayProxyResponse{
-			StatusCode: http.StatusMethodNotAllowed,
-			Body:       "Method Not Allowed",
-		}, nil
-	}
-}
-
-func main() {
-	log.Println("Lambda function started...")
-	lambda.Start(handler)
-}
+	// Put the item into DynamoDB with ExecutionID
+	_,
