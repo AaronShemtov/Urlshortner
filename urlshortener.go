@@ -123,7 +123,13 @@ func redirectURL(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 }
 
 func handler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	log.Printf("Full request: %+v", req) // Logs the full request for debugging
+
 	log.Println("Received request:", req.HTTPMethod, req.Path)
+	if req.HTTPMethod == "" {
+		log.Println("Error: HTTP Method is empty")
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest, Body: "Invalid request"}, nil
+	}
 
 	switch req.HTTPMethod {
 	case "POST":
@@ -138,6 +144,7 @@ func handler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse,
 		}, nil
 	}
 }
+
 
 func main() {
 	log.Println("Lambda function started...")
