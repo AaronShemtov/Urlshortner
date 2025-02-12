@@ -27,8 +27,6 @@ type ShortURL struct {
 }
 
 var db = dynamodb.New(session.Must(session.NewSession()))
-
-// var tableName = os.Getenv("DYNAMODB_TABLE")
 var tableName = "LongShortLinks"
 
 func generateShortCode(length int) string {
@@ -42,7 +40,7 @@ func generateShortCode(length int) string {
 	return string(code)
 }
 
-func shortenURL(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Processing shortenURL request...")
 
 	var request ShortenRequest
@@ -88,10 +86,11 @@ func shortenURL(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRespon
 	return events.APIGatewayProxyResponse{StatusCode: http.StatusOK, Body: string(respBody)}, nil
 }
 
-func redirectURL(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	log.Println("Processing redirect request for code:", req.PathParameters["code"])
+func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
+	// Access path from RequestContext, e.g., /r/{code}
+	log.Println("Processing redirect request for code:", req.RequestContext.HTTP.Path)
 
-	code := req.PathParameters["code"]
+	code := req.RequestContext.HTTP.Path
 
 	result, err := db.GetItem(&dynamodb.GetItemInput{
 		TableName: aws.String(tableName),
@@ -122,37 +121,22 @@ func redirectURL(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	}, nil
 }
 
-
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
-    fmt.Println("===== Received Lambda Function URL Request =====")
-    fmt.Printf("Full Request: %+v\n", req)
+	log.Println("Received request:", req)
 
-    // Convert LambdaFunctionURLRequest to APIGatewayProxyRequest
-    convertedReq := events.APIGatewayProxyRequest{
-        HTTPMethod: req.RequestContext.HTTP.Method,
-        PathParameters: map[string]string{
-            "code": req.PathParameters["code"],
-        },
-        QueryStringParameters: req.QueryStringParameters,
-        Headers:               req.Headers,
-        Body:                  req.Body,
-    }
-
-    switch req.RequestContext.HTTP.Method {
-    case "POST":
-        return shortenURL(convertedReq)
-    case "GET":
-        return redirectURL(convertedReq)
-    default:
-        fmt.Println("Error: Unsupported HTTP Method ->", req.RequestContext.HTTP.Method)
-        return events.APIGatewayProxyResponse{
-            StatusCode: http.StatusMethodNotAllowed,
-            Body:       "Method Not Allowed",
-        }, nil
-    }
+	switch req.RequestContext.HTTP.Method {
+	case "POST":
+		return shortenURL(req)
+	case "GET":
+		return redirectURL(req)
+	default:
+		log.Println("Unsupported method:", req.RequestContext.HTTP.Method)
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusMethodNotAllowed,
+			Body:       "Method Not Allowed",
+		}, nil
+	}
 }
-
-
 
 func main() {
 	log.Println("Lambda function started...")
