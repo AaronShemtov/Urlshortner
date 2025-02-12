@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main  # Trigger the workflow on push to the main branch
-    paths-ignore:
-      - logs_input/**
-      - logs_output/**
 
 jobs:
   build:
@@ -35,7 +32,6 @@ jobs:
 
       - name: Build Docker image
         run: |
-          cd lambda  # Navigate to the lambda directory where the Dockerfile is located
           docker buildx build --platform linux/amd64 --load -t ${{ secrets.ECR_REPOSITORY }} .
 
       - name: Push Docker image to Amazon ECR
