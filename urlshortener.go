@@ -77,4 +77,80 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 	}
 
 	// Put the item into DynamoDB with ExecutionID
-	_,
+	_, err = db.PutItem(&dynamodb.PutItemInput{
+		TableName: aws.String(tableName),
+		Item:      item,
+	})
+	if err != nil {
+		log.Println("Error saving item to DynamoDB:", err)
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Database error"}, err
+	}
+
+	response := map[string]string{"short_url": fmt.Sprintf("https://u.1ms.my/r/%s", code)}
+	respBody, _ := json.Marshal(response)
+
+	log.Println("Successfully created short URL:", response)
+
+	return events.APIGatewayProxyResponse{StatusCode: http.StatusOK, Body: string(respBody)}, nil
+}
+
+// Handle redirection based on short code
+func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
+	// Access path from RequestContext, e.g., /r/{code}
+	log.Println("Processing redirect request for code:", req.RequestContext.HTTP.Path)
+
+	code := req.RequestContext.HTTP.Path
+
+	// Fetch the item from DynamoDB using the short code as the key
+	result, err := db.GetItem(&dynamodb.GetItemInput{
+		TableName: aws.String(tableName),
+		Key:       map[string]*dynamodb.AttributeValue{"Code": {S: aws.String(code)}},
+	})
+	if err != nil {
+		log.Println("Error retrieving item from DynamoDB:", err)
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Database error"}, err
+	}
+
+	if result.Item == nil {
+		log.Println("Short URL not found for code:", code)
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusNotFound, Body: "URL not found"}, nil
+	}
+
+	// Unmarshal the result into the ShortURL struct
+	var shortURL ShortURL
+	err = dynamodbattribute.UnmarshalMap(result.Item, &shortURL)
+	if err != nil {
+		log.Println("Error unmarshaling DynamoDB response:", err)
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Internal error"}, err
+	}
+
+	log.Println("Redirecting to:", shortURL.LongURL)
+
+	// Redirect to the long URL
+	return events.APIGatewayProxyResponse{
+		StatusCode: http.StatusMovedPermanently,
+		Headers:    map[string]string{"Location": shortURL.LongURL},
+	}, nil
+}
+
+func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
+	log.Println("Received request:", req)
+
+	switch req.RequestContext.HTTP.Method {
+	case "POST":
+		return shortenURL(req)
+	case "GET":
+		return redirectURL(req)
+	default:
+		log.Println("Unsupported method:", req.RequestContext.HTTP.Method)
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusMethodNotAllowed,
+			Body:       "Method Not Allowed",
+		}, nil
+	}
+}
+
+func main() {
+	log.Println("Lambda function started...")
+	lambda.Start(handler)
+}
