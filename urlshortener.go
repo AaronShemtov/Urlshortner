@@ -76,7 +76,7 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Internal error"}, err
 	}
 
-	// Put the item into DynamoDB with ExecutionID
+	// Put the item into DynamoDB with ExecutionID as the partition key
 	_, err = db.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
 		Item:      item,
@@ -99,7 +99,7 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 	// Access path from RequestContext, e.g., /r/{code}
 	log.Println("Processing redirect request for code:", req.RequestContext.HTTP.Path)
 
-	code := req.RequestContext.HTTP.Path
+	code := req.RequestContext.HTTP.Path[3:] // Path might include `/r/`, so slicing it off
 
 	// Fetch the item from DynamoDB using the short code as the key
 	result, err := db.GetItem(&dynamodb.GetItemInput{
