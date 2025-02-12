@@ -23,12 +23,6 @@ WORKDIR /root/
 # Copy compiled binary from builder
 COPY --from=builder /app/urlshortener .
 
-# Set environment variables
-ENV DYNAMODB_TABLE=url_shortener
-
-# Expose port (if running locally)
-EXPOSE 8080
-
 # Run the app
 CMD ["./urlshortener"]
 
