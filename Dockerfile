@@ -21,16 +21,17 @@ RUN chmod +x urlshortener
 # Final runtime image
 FROM alpine:latest
 
-WORKDIR /root/
+# Use /app/ instead of /root/ (Lambda restriction)
+WORKDIR /app/
 
 # Install necessary CA certificates (if needed for HTTPS requests)
 RUN apk --no-cache add ca-certificates
 
 # Copy compiled binary from builder
-COPY --from=builder /app/urlshortener .
+COPY --from=builder /app/urlshortener /app/
 
-# Ensure the binary has execution permissions (just in case)
-RUN chmod +x /root/urlshortener
+# Ensure the binary has execution permissions inside final image
+RUN chmod +x /app/urlshortener
 
-# Set as entrypoint
-ENTRYPOINT ["/root/urlshortener"]
+# Use correct entrypoint
+ENTRYPOINT ["/app/urlshortener"]
