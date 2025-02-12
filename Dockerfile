@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24.0 AS builder
 
 WORKDIR /app
 
@@ -25,4 +25,3 @@ COPY --from=builder /app/urlshortener .
 
 # Run the app
 CMD ["./urlshortener"]
-
