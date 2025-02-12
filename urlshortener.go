@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -27,7 +26,9 @@ type ShortURL struct {
 }
 
 var db = dynamodb.New(session.Must(session.NewSession()))
-var tableName = os.Getenv("DYNAMODB_TABLE")
+
+// var tableName = os.Getenv("DYNAMODB_TABLE")
+var tableName = "LongShortLinks"
 
 func generateShortCode(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
