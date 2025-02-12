@@ -25,7 +25,7 @@ jobs:
 
       - name: Build and Push Docker Image
         env:
-          AWS_REGION: us-east-1  # Change to your AWS region
+          AWS_REGION: eu-central-1  # Change to your AWS region
           ECR_REPOSITORY: aaronshemtov/urlshortener
         run: |
           docker buildx create --use
