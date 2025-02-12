@@ -122,25 +122,18 @@ func redirectURL(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	}, nil
 }
 
-func handler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-    fmt.Println("===== Received Request =====")
+
+func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
+    fmt.Println("===== Received Lambda Function URL Request =====")
     fmt.Printf("Full Request: %+v\n", req)
 
-    if req.HTTPMethod == "" {
-        fmt.Println("Error: HTTP Method is empty")
-        return events.APIGatewayProxyResponse{
-            StatusCode: http.StatusBadRequest,
-            Body:       "HTTP Method is missing",
-        }, nil
-    }
-
-    switch req.HTTPMethod {
+    switch req.RequestContext.HTTP.Method {
     case "POST":
         return shortenURL(req)
     case "GET":
         return redirectURL(req)
     default:
-        fmt.Println("Error: Unsupported HTTP Method ->", req.HTTPMethod)
+        fmt.Println("Error: Unsupported HTTP Method ->", req.RequestContext.HTTP.Method)
         return events.APIGatewayProxyResponse{
             StatusCode: http.StatusMethodNotAllowed,
             Body:       "Method Not Allowed",
