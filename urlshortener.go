@@ -86,7 +86,7 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 	}
 
 	shortURLResponse := map[string]string{
-		"short_url": fmt.Sprintf("https://k0meyaql4k.execute-api.eu-central-1.amazonaws.com/%s", code),
+		"short_url": fmt.Sprintf("https://q4qoiz3fsjtv4rkvvizhg7yaci0zwpro.lambda-url.eu-central-1.on.aws/%s", code),
 	}
 	respBody, _ := json.Marshal(shortURLResponse)
 
@@ -97,23 +97,24 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 // Handle redirection
 func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Processing redirect request...")
+	log.Println("Received RawPath:", req.RawPath) // Debugging
 
-	// Extract short code from URL path
-	parts := strings.Split(req.RequestContext.HTTP.Path, "/")
+	// Extract short code from URL path using RawPath
+	parts := strings.Split(req.RawPath, "/")
 	if len(parts) <= 1 {
 		log.Println("No valid short code found in path")
 		return createResponse(http.StatusBadRequest, "Invalid short code"), nil
 	}
 
 	code := parts[len(parts)-1]
-	log.Println("Extracted code:", code)
+	log.Println("Extracted code (case-sensitive):", code)
 
 	if code == "" {
 		log.Println("Short code is empty")
 		return createResponse(http.StatusBadRequest, "Invalid short code"), nil
 	}
 
-	// Query DynamoDB using short code
+	// Query DynamoDB using the exact code
 	log.Println("Querying DynamoDB for code:", code)
 	result, err := db.Query(&dynamodb.QueryInput{
 		TableName:              aws.String(tableName),
@@ -174,10 +175,10 @@ func createResponse(statusCode int, body string) events.APIGatewayProxyResponse 
 	}
 }
 
-
 // Route request
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
-	log.Println("Received request:", req)
+	log.Println("Received request path:", req.RawPath)
+	log.Println("HTTP Method:", req.RequestContext.HTTP.Method)
 
 	switch req.RequestContext.HTTP.Method {
 	case "POST":
