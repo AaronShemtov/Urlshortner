@@ -14,7 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/google/uuid"
+	"github.com/google/uuid" // You can use any method to generate unique IDs
 )
 
 type ShortenRequest struct {
@@ -22,7 +22,7 @@ type ShortenRequest struct {
 }
 
 type ShortURL struct {
-	ExecutionID string `json:"execution_id"` // ExecutionID as the partition key
+	ExecutionID string `json:"execution_id"` // Add ExecutionID to the struct
 	Code        string `json:"code"`
 	LongURL     string `json:"long_url"`
 	CreatedAt   string `json:"created_at"`
@@ -76,25 +76,16 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Internal error"}, err
 	}
 
-	// Log the item to be stored
-	log.Println("Item to be saved:", item)
-
-// Put the item into DynamoDB with ExecutionID as the partition key
-_, err = db.PutItem(&dynamodb.PutItemInput{re
-    TableName: aws.String(tableName),
-    Item: map[string]*dynamodb.AttributeValue{
-        "ExecutionID": {S: aws.String(shortURL.ExecutionID)}, // Explicitly set ExecutionID as the partition key
-        "Code":        {S: aws.String(shortURL.Code)},
-        "LongURL":     {S: aws.String(shortURL.LongURL)},
-        "CreatedAt":   {S: aws.String(shortURL.CreatedAt)},
-    },
-})
+	// Put the item into DynamoDB with ExecutionID as the partition key
+	_, err = db.PutItem(&dynamodb.PutItemInput{
+		TableName: aws.String(tableName),
+		Item:      item,
+	})
 	if err != nil {
 		log.Println("Error saving item to DynamoDB:", err)
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Database error"}, err
 	}
 
-	// Return short URL response
 	response := map[string]string{"short_url": fmt.Sprintf("https://u.1ms.my/r/%s", code)}
 	respBody, _ := json.Marshal(response)
 
@@ -102,7 +93,6 @@ _, err = db.PutItem(&dynamodb.PutItemInput{re
 
 	return events.APIGatewayProxyResponse{StatusCode: http.StatusOK, Body: string(respBody)}, nil
 }
-
 
 // Handle redirection based on short code
 func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
@@ -146,7 +136,6 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 		Headers:    map[string]string{"Location": shortURL.LongURL},
 	}, nil
 }
-
 
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Received request:", req)
