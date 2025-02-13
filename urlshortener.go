@@ -92,10 +92,14 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Processing redirect request...")
 
+	// Extract short code from the request path
 	parts := strings.Split(req.RequestContext.HTTP.Path, "/")
 	if len(parts) <= 1 {
 		log.Println("No valid short code found in the path")
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest, Body: "Invalid short code"}, nil
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusBadRequest,
+			Body:       "Invalid short code in the path",
+		}, nil
 	}
 
 	code := parts[len(parts)-1]
@@ -106,26 +110,32 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest, Body: "Invalid short code"}, nil
 	}
 
+	// Query DynamoDB to find the original URL
 	log.Println("Querying DynamoDB for code:", code)
 	result, err := db.Query(&dynamodb.QueryInput{
 		TableName:              aws.String(tableName),
-		IndexName:              aws.String("CodeIndexName"),
+		IndexName:              aws.String("CodeIndexName"), // Querying the GSI by Code
 		KeyConditionExpression: aws.String("Code = :code"),
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
 			":code": {S: aws.String(code)},
 		},
 	})
 	if err != nil {
-		log.Println("Error retrieving item from DynamoDB:", err)
+		log.Println("Error querying DynamoDB:", err)
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Database error"}, err
 	}
 
 	log.Println("DynamoDB query result count:", len(result.Items))
+
 	if len(result.Items) == 0 {
-		log.Println("Short URL not found for code:", code)
+		log.Println("No URL found for code:", code)
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusNotFound, Body: "URL not found"}, nil
 	}
 
+	// Log the full DynamoDB response
+	log.Println("DynamoDB raw response:", result.Items)
+
+	// Unmarshal the result into the ShortURL struct
 	var shortURL ShortURL
 	err = dynamodbattribute.UnmarshalMap(result.Items[0], &shortURL)
 	if err != nil {
@@ -133,12 +143,23 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Internal error"}, err
 	}
 
+	// Ensure LongURL is retrieved correctly
+	log.Println("Retrieved entry from DynamoDB:", shortURL)
+	if shortURL.LongURL == "" {
+		log.Println("Warning: Retrieved LongURL is empty for code:", code)
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusNotFound, Body: "URL not found"}, nil
+	}
+
+	// Log the final redirect URL
 	log.Println("Redirecting to URL:", shortURL.LongURL)
+
+	// Redirect to the long URL
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusMovedPermanently,
 		Headers:    map[string]string{"Location": shortURL.LongURL},
 	}, nil
 }
+
 
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Received request:", req.RequestContext.HTTP.Method, req.RequestContext.HTTP.Path)
