@@ -174,6 +174,7 @@ func createResponse(statusCode int, body string) events.APIGatewayProxyResponse 
 	}
 }
 
+
 // Route request
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Received request:", req)
