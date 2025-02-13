@@ -80,7 +80,7 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 	log.Println("Item to be saved:", item)
 
 // Put the item into DynamoDB with ExecutionID as the partition key
-_, err = db.PutItem(&dynamodb.PutItemInput{
+_, err = db.PutItem(&dynamodb.PutItemInput{re
     TableName: aws.String(tableName),
     Item: map[string]*dynamodb.AttributeValue{
         "ExecutionID": {S: aws.String(shortURL.ExecutionID)}, // Explicitly set ExecutionID as the partition key
@@ -103,6 +103,7 @@ _, err = db.PutItem(&dynamodb.PutItemInput{
 	return events.APIGatewayProxyResponse{StatusCode: http.StatusOK, Body: string(respBody)}, nil
 }
 
+
 // Handle redirection based on short code
 func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	// Access path from RequestContext, e.g., /r/{code}
@@ -110,24 +111,28 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 
 	code := req.RequestContext.HTTP.Path[3:] // Path might include `/r/`, so slicing it off
 
-	// Fetch the item from DynamoDB using the short code as the key
-	result, err := db.GetItem(&dynamodb.GetItemInput{
+	// Fetch the item from DynamoDB using the Code as the key in the GSI
+	result, err := db.Query(&dynamodb.QueryInput{
 		TableName: aws.String(tableName),
-		Key:       map[string]*dynamodb.AttributeValue{"Code": {S: aws.String(code)}},
+		IndexName: aws.String("CodeIndex"), // Use the GSI name here
+		KeyConditionExpression: aws.String("Code = :code"),
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":code": {S: aws.String(code)},
+		},
 	})
 	if err != nil {
 		log.Println("Error retrieving item from DynamoDB:", err)
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Database error"}, err
 	}
 
-	if result.Item == nil {
+	if len(result.Items) == 0 {
 		log.Println("Short URL not found for code:", code)
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusNotFound, Body: "URL not found"}, nil
 	}
 
 	// Unmarshal the result into the ShortURL struct
 	var shortURL ShortURL
-	err = dynamodbattribute.UnmarshalMap(result.Item, &shortURL)
+	err = dynamodbattribute.UnmarshalMap(result.Items[0], &shortURL)
 	if err != nil {
 		log.Println("Error unmarshaling DynamoDB response:", err)
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Internal error"}, err
@@ -141,6 +146,7 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 		Headers:    map[string]string{"Location": shortURL.LongURL},
 	}, nil
 }
+
 
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Received request:", req)
