@@ -104,7 +104,7 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 	// Fetch the item from DynamoDB using the short code as the key in GSI
 	result, err := db.Query(&dynamodb.QueryInput{
 		TableName:              aws.String(tableName),
-		IndexName:              aws.String("Code-index"), // Use GSI here
+		IndexName:              aws.String("CodeIndexName"), // Use GSI here
 		KeyConditionExpression: aws.String("Code = :code"),
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
 			":code": {S: aws.String(code)},
