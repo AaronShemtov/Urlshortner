@@ -14,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/google/uuid"
 )
 
@@ -32,6 +31,7 @@ type ShortURL struct {
 var db = dynamodb.New(session.Must(session.NewSession()))
 var tableName = "LongShortLinks"
 
+// Generate a random short code
 func generateShortCode(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	rand.Seed(time.Now().UnixNano())
@@ -43,6 +43,7 @@ func generateShortCode(length int) string {
 	return string(code)
 }
 
+// Handle shortening of URL
 func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Processing shortenURL request...")
 
@@ -57,6 +58,7 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest, Body: "Missing URL"}, nil
 	}
 
+	// Generate short code and ExecutionID
 	code := generateShortCode(6)
 	executionID := uuid.New().String()
 	shortURL := ShortURL{
@@ -68,6 +70,7 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 
 	log.Println("Generated short URL entry:", shortURL)
 
+	// Put the item into DynamoDB
 	_, err := db.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
 		Item: map[string]*dynamodb.AttributeValue{
@@ -90,9 +93,11 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 	return events.APIGatewayProxyResponse{StatusCode: http.StatusOK, Body: string(respBody)}, nil
 }
 
+// Handle redirection from short URL to long URL
 func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Processing redirect request...")
 
+	// Extract short code from the URL path
 	parts := strings.Split(req.RequestContext.HTTP.Path, "/")
 	if len(parts) <= 1 {
 		log.Println("No valid short code found in the path")
@@ -152,7 +157,7 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 	}, nil
 }
 
-
+// Route request based on method
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Received request:", req)
 
@@ -163,7 +168,10 @@ func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRespons
 		return redirectURL(req)
 	default:
 		log.Println("Unsupported method:", req.RequestContext.HTTP.Method)
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusMethodNotAllowed, Body: "Method Not Allowed"}, nil
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusMethodNotAllowed,
+			Body:       "Method Not Allowed",
+		}, nil
 	}
 }
 
