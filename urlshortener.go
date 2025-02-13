@@ -79,11 +79,16 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 	// Log the item to be stored
 	log.Println("Item to be saved:", item)
 
-	// Put the item into DynamoDB with ExecutionID as the partition key
-	_, err = db.PutItem(&dynamodb.PutItemInput{
-		TableName: aws.String(tableName),
-		Item:      item,
-	})
+// Put the item into DynamoDB with ExecutionID as the partition key
+_, err = db.PutItem(&dynamodb.PutItemInput{
+    TableName: aws.String(tableName),
+    Item: map[string]*dynamodb.AttributeValue{
+        "ExecutionID": {S: aws.String(shortURL.ExecutionID)}, // Explicitly set ExecutionID as the partition key
+        "Code":        {S: aws.String(shortURL.Code)},
+        "LongURL":     {S: aws.String(shortURL.LongURL)},
+        "CreatedAt":   {S: aws.String(shortURL.CreatedAt)},
+    },
+})
 	if err != nil {
 		log.Println("Error saving item to DynamoDB:", err)
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Database error"}, err
