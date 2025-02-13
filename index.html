@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1ms URL Shortener - Fastest URL Shortening</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            text-align: center;
+        }
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        p {
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        input {
+            padding: 12px;
+            width: 300px;
+            border-radius: 5px;
+            border: none;
+            font-size: 16px;
+        }
+        button {
+            padding: 12px 20px;
+            border-radius: 5px;
+            border: none;
+            font-size: 16px;
+            background-color: #ffcc00;
+            cursor: pointer;
+            margin-top: 10px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        button:hover {
+            background-color: #ffdd44;
+        }
+        .result {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        img {
+            width: 100px;
+            margin-bottom: 10px;
+        }
+        .loading {
+            display: none;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <img src="https://via.placeholder.com/100" alt="1ms Logo">
+    <h1>1ms URL Shortener</h1>
+    <p>Shorten your links at lightning speed! ⚡</p>
+    
+    <input type="text" id="longUrl" placeholder="Enter URL to shorten">
+    <button onclick="shortenUrl()">Shorten Now</button>
+    
+    <p class="loading" id="loading">⏳ Shortening URL...</p>
+    <div class="result" id="result"></div>
+
+    <script>
+        async function shortenUrl() {
+            const longUrl = document.getElementById('longUrl').value;
+            const resultDiv = document.getElementById('result');
+            const loadingText = document.getElementById('loading');
+
+            if (!longUrl) {
+                alert("Please enter a valid URL");
+                return;
+            }
+
+            resultDiv.innerHTML = "";
+            loadingText.style.display = "block";
+
+            try {
+                const response = await fetch('https://q4qoiz3fsjtv4rkvvizhg7yaci0zwpro.lambda-url.eu-central-1.on.aws/shorten', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: longUrl })
+                });
+
+                loadingText.style.display = "none";
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.short_url) {
+                    resultDiv.innerHTML = `🚀 Your short URL: <a href="${data.short_url}" target="_blank">${data.short_url}</a>`;
+                } else {
+                    throw new Error("Invalid response from server");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                resultDiv.innerHTML = "❌ Failed to shorten URL. Please try again.";
+                loadingText.style.display = "none";
+            }
+        }
+    </script>
+</body>
+</html>

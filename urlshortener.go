@@ -43,19 +43,19 @@ func generateShortCode(length int) string {
 	return string(code)
 }
 
-// Handle shortening of URL
+// Handle URL shortening
 func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Processing shortenURL request...")
 
 	var request ShortenRequest
 	if err := json.Unmarshal([]byte(req.Body), &request); err != nil {
 		log.Println("Error parsing JSON request body:", err)
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest, Body: "Invalid JSON"}, err
+		return createResponse(http.StatusBadRequest, "Invalid JSON"), nil
 	}
 
 	if request.URL == "" {
 		log.Println("Missing URL in request")
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest, Body: "Missing URL"}, nil
+		return createResponse(http.StatusBadRequest, "Missing URL"), nil
 	}
 
 	// Generate short code and ExecutionID
@@ -70,7 +70,7 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 
 	log.Println("Generated short URL entry:", shortURL)
 
-	// Put the item into DynamoDB
+	// Store in DynamoDB
 	_, err := db.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
 		Item: map[string]*dynamodb.AttributeValue{
@@ -82,26 +82,27 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 	})
 	if err != nil {
 		log.Println("Error saving item to DynamoDB:", err)
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Database error"}, err
+		return createResponse(http.StatusInternalServerError, "Database error"), nil
 	}
 
-	response := map[string]string{"short_url": fmt.Sprintf("https://q4qoiz3fsjtv4rkvvizhg7yaci0zwpro.lambda-url.eu-central-1.on.aws/%s", code)}
-	respBody, _ := json.Marshal(response)
+	shortURLResponse := map[string]string{
+		"short_url": fmt.Sprintf("https://q4qoiz3fsjtv4rkvvizhg7yaci0zwpro.lambda-url.eu-central-1.on.aws/%s", code),
+	}
+	respBody, _ := json.Marshal(shortURLResponse)
 
-	log.Println("Successfully created short URL:", response)
-
-	return events.APIGatewayProxyResponse{StatusCode: http.StatusOK, Body: string(respBody)}, nil
+	log.Println("Successfully created short URL:", shortURLResponse)
+	return createResponse(http.StatusOK, string(respBody)), nil
 }
 
-// Handle redirection from short URL to long URL
+// Handle redirection
 func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Processing redirect request...")
 
-	// Extract short code from the URL path
+	// Extract short code from URL path
 	parts := strings.Split(req.RequestContext.HTTP.Path, "/")
 	if len(parts) <= 1 {
-		log.Println("No valid short code found in the path")
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest, Body: "Invalid short code"}, nil
+		log.Println("No valid short code found in path")
+		return createResponse(http.StatusBadRequest, "Invalid short code"), nil
 	}
 
 	code := parts[len(parts)-1]
@@ -109,10 +110,10 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 
 	if code == "" {
 		log.Println("Short code is empty")
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest, Body: "Invalid short code"}, nil
+		return createResponse(http.StatusBadRequest, "Invalid short code"), nil
 	}
 
-	// Query DynamoDB using the short code
+	// Query DynamoDB using short code
 	log.Println("Querying DynamoDB for code:", code)
 	result, err := db.Query(&dynamodb.QueryInput{
 		TableName:              aws.String(tableName),
@@ -124,40 +125,56 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 	})
 	if err != nil {
 		log.Println("Error retrieving item from DynamoDB:", err)
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Database error"}, err
+		return createResponse(http.StatusInternalServerError, "Database error"), nil
 	}
 
 	log.Println("DynamoDB query result count:", len(result.Items))
 	if len(result.Items) == 0 {
 		log.Println("Short URL not found for code:", code)
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusNotFound, Body: "URL not found"}, nil
+		return createResponse(http.StatusNotFound, "URL not found"), nil
 	}
 
-	// Print the raw DynamoDB result
-	log.Println("Retrieved entry from DynamoDB:", result.Items[0])
-
-	// Extract LongURL manually before unmarshaling
+	// Extract LongURL
 	longURLAttr, exists := result.Items[0]["LongURL"]
 	if !exists || longURLAttr.S == nil {
-		log.Println("LongURL attribute is missing in DynamoDB entry")
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Invalid data in database"}, nil
+		log.Println("LongURL attribute missing in DynamoDB entry")
+		return createResponse(http.StatusInternalServerError, "Invalid data in database"), nil
 	}
 	longURL := *longURLAttr.S
 	log.Println("Retrieved LongURL:", longURL)
 
 	if longURL == "" {
-		log.Println("Retrieved LongURL is empty for code:", code)
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusNotFound, Body: "URL not found"}, nil
+		log.Println("Retrieved LongURL is empty")
+		return createResponse(http.StatusNotFound, "URL not found"), nil
 	}
 
-	// Redirect to the original URL
+	// Redirect user
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusMovedPermanently,
-		Headers:    map[string]string{"Location": longURL},
+		Headers: map[string]string{
+			"Location": longURL,
+			"Access-Control-Allow-Origin": "*",
+			"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+			"Access-Control-Allow-Headers": "Content-Type",
+		},
 	}, nil
 }
 
-// Route request based on method
+// Universal response function with CORS headers
+func createResponse(statusCode int, body string) events.APIGatewayProxyResponse {
+	return events.APIGatewayProxyResponse{
+		StatusCode: statusCode,
+		Headers: map[string]string{
+			"Content-Type":                "application/json",
+			"Access-Control-Allow-Origin": "*",
+			"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+			"Access-Control-Allow-Headers": "Content-Type",
+		},
+		Body: body,
+	}
+}
+
+// Route request
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Received request:", req)
 
@@ -166,12 +183,11 @@ func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRespons
 		return shortenURL(req)
 	case "GET":
 		return redirectURL(req)
+	case "OPTIONS": // Preflight requests (CORS)
+		return createResponse(http.StatusOK, ""), nil
 	default:
 		log.Println("Unsupported method:", req.RequestContext.HTTP.Method)
-		return events.APIGatewayProxyResponse{
-			StatusCode: http.StatusMethodNotAllowed,
-			Body:       "Method Not Allowed",
-		}, nil
+		return createResponse(http.StatusMethodNotAllowed, "Method Not Allowed"), nil
 	}
 }
 
