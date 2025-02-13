@@ -177,7 +177,8 @@ func createResponse(statusCode int, body string) events.APIGatewayProxyResponse 
 
 // Route request
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
-	log.Println("Received request path:", req.RawPath)
+	log.Println("======== NEW REQUEST RECEIVED ========")
+	log.Println("Received RawPath:", req.RawPath)
 	log.Println("HTTP Method:", req.RequestContext.HTTP.Method)
 
 	switch req.RequestContext.HTTP.Method {
@@ -185,13 +186,14 @@ func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRespons
 		return shortenURL(req)
 	case "GET":
 		return redirectURL(req)
-	case "OPTIONS": // Preflight requests (CORS)
+	case "OPTIONS":
 		return createResponse(http.StatusOK, ""), nil
 	default:
 		log.Println("Unsupported method:", req.RequestContext.HTTP.Method)
 		return createResponse(http.StatusMethodNotAllowed, "Method Not Allowed"), nil
 	}
 }
+
 
 func main() {
 	log.Println("Lambda function started...")
