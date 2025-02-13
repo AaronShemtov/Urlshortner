@@ -33,7 +33,7 @@ var tableName = "LongShortLinks"
 
 // Generate a random short code
 func generateShortCode(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_~"
 	rand.Seed(time.Now().UnixNano())
 	code := make([]byte, length)
 	for i := range code {
@@ -59,7 +59,7 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 	}
 
 	// Generate short code and ExecutionID
-	code := generateShortCode(6)
+	code := generateShortCode(4)
 	executionID := uuid.New().String()
 	shortURL := ShortURL{
 		ExecutionID: executionID,
