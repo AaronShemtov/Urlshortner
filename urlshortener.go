@@ -70,22 +70,22 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 
 	log.Println("Generated short URL entry:", shortURL)
 
-	item, err := dynamodbattribute.MarshalMap(shortURL)
-	if err != nil {
-		log.Println("Error marshaling item for DynamoDB:", err)
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Internal error"}, err
-	}
-
-	// Put the item into DynamoDB with ExecutionID as the partition key
-	_, err = db.PutItem(&dynamodb.PutItemInput{
+	// Put the item into DynamoDB with ExecutionID and Code as partition and sort keys
+	_, err := db.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
-		Item:      item,
+		Item: map[string]*dynamodb.AttributeValue{
+			"ExecutionID": {S: aws.String(shortURL.ExecutionID)}, // Partition key
+			"Code":        {S: aws.String(shortURL.Code)},        // Sort key (for the GSI)
+			"LongURL":     {S: aws.String(shortURL.LongURL)},     // Long URL
+			"CreatedAt":   {S: aws.String(shortURL.CreatedAt)},   // Timestamp
+		},
 	})
 	if err != nil {
 		log.Println("Error saving item to DynamoDB:", err)
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Database error"}, err
 	}
 
+	// Prepare response with short URL
 	response := map[string]string{"short_url": fmt.Sprintf("https://u.1ms.my/r/%s", code)}
 	respBody, _ := json.Marshal(response)
 
@@ -101,10 +101,10 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 
 	code := req.RequestContext.HTTP.Path[3:] // Path might include `/r/`, so slicing it off
 
-	// Fetch the item from DynamoDB using the Code as the key in the GSI
+	// Fetch the item from DynamoDB using the short code as the key in GSI
 	result, err := db.Query(&dynamodb.QueryInput{
-		TableName: aws.String(tableName),
-		IndexName: aws.String("CodeIndex"), // Use the GSI name here
+		TableName:              aws.String(tableName),
+		IndexName:              aws.String("Code-index"), // Use GSI here
 		KeyConditionExpression: aws.String("Code = :code"),
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
 			":code": {S: aws.String(code)},
