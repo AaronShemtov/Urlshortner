@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -70,12 +71,12 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 
 	log.Println("Generated short URL entry:", shortURL)
 
-	// Put the item into DynamoDB with ExecutionID as partition key
+	// Put the item into DynamoDB with ExecutionID and Code as partition and sort keys
 	_, err := db.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
 		Item: map[string]*dynamodb.AttributeValue{
 			"ExecutionID": {S: aws.String(shortURL.ExecutionID)}, // Partition key
-			"Code":        {S: aws.String(shortURL.Code)},        // Code for GSI
+			"Code":        {S: aws.String(shortURL.Code)},        // Sort key (for the GSI)
 			"LongURL":     {S: aws.String(shortURL.LongURL)},     // Long URL
 			"CreatedAt":   {S: aws.String(shortURL.CreatedAt)},   // Timestamp
 		},
@@ -85,10 +86,7 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Database error"}, err
 	}
 
-//	response := map[string]string{"short_url": fmt.Sprintf("https://u.1ms.my/r/%s", code)}
-response := map[string]string{"short_url": fmt.Sprintf("https://q4qoiz3fsjtv4rkvvizhg7yaci0zwpro.lambda-url.eu-central-1.on.aws/%s", code)}
-
-
+	response := map[string]string{"short_url": fmt.Sprintf("https://q4qoiz3fsjtv4rkvvizhg7yaci0zwpro.lambda-url.eu-central-1.on.aws/%s", code)}
 	respBody, _ := json.Marshal(response)
 
 	log.Println("Successfully created short URL:", response)
@@ -97,7 +95,6 @@ response := map[string]string{"short_url": fmt.Sprintf("https://q4qoiz3fsjtv4rkv
 }
 
 // Handle redirection based on short code
-
 func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	// Access the path from RequestContext
 	log.Println("Processing redirect request for code:", req.RequestContext.HTTP.Path)
@@ -155,7 +152,6 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 		Headers:    map[string]string{"Location": shortURL.LongURL},
 	}, nil
 }
-
 
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Received request:", req)
