@@ -70,12 +70,12 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 
 	log.Println("Generated short URL entry:", shortURL)
 
-	// Put the  item into DynamoDB with ExecutionID and Code as partition and sort keys
+	// Put the item into DynamoDB with ExecutionID as partition key
 	_, err := db.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
 		Item: map[string]*dynamodb.AttributeValue{
 			"ExecutionID": {S: aws.String(shortURL.ExecutionID)}, // Partition key
-			"Code":        {S: aws.String(shortURL.Code)},        // Sort key (for the GSI)
+			"Code":        {S: aws.String(shortURL.Code)},        // Code for GSI
 			"LongURL":     {S: aws.String(shortURL.LongURL)},     // Long URL
 			"CreatedAt":   {S: aws.String(shortURL.CreatedAt)},   // Timestamp
 		},
@@ -85,9 +85,7 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Database error"}, err
 	}
 
-	// Prepare response with short URL
-//	response := map[string]string{"short_url": fmt.Sprintf("https://u.1ms.my/r/%s", code)}
-response := map[string]string{"short_url": fmt.Sprintf("https://q4qoiz3fsjtv4rkvvizhg7yaci0zwpro.lambda-url.eu-central-1.on.aws/r/%s", code)}
+	response := map[string]string{"short_url": fmt.Sprintf("https://u.1ms.my/r/%s", code)}
 	respBody, _ := json.Marshal(response)
 
 	log.Println("Successfully created short URL:", response)
@@ -102,10 +100,10 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 
 	code := req.RequestContext.HTTP.Path[3:] // Path might include `/r/`, so slicing it off
 
-	// Fetch the item from DynamoDB using the short code as the key in GSI
+	// Fetch the item from DynamoDB using the short code as the key in the GSI
 	result, err := db.Query(&dynamodb.QueryInput{
 		TableName:              aws.String(tableName),
-		IndexName:              aws.String("CodeIndexName"), // Use GSI here
+		IndexName:             aws.String("CodeIndexName"), // Querying the GSI by Code
 		KeyConditionExpression: aws.String("Code = :code"),
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
 			":code": {S: aws.String(code)},
