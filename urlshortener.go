@@ -97,14 +97,17 @@ response := map[string]string{"short_url": fmt.Sprintf("https://q4qoiz3fsjtv4rkv
 }
 
 // Handle redirection based on short code
+
 func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
-	// Access path from RequestContext, e.g., /x2XK9p
+	// Access the path from RequestContext
 	log.Println("Processing redirect request for code:", req.RequestContext.HTTP.Path)
 
-	// Extract short code from the URL path after the `/` (e.g., "/x2XK9p" -> "x2XK9p")
+	// Extract short code from the URL path after the first `/`
+	// For example, "/JZWfKa" -> "JZWfKa"
 	code := ""
-	if len(req.RequestContext.HTTP.Path) > 1 {
-		code = req.RequestContext.HTTP.Path[1:] // Slice off the leading "/"
+	parts := strings.Split(req.RequestContext.HTTP.Path, "/")
+	if len(parts) > 1 {
+		code = parts[1] // Extract the short code part
 	}
 
 	log.Println("Extracted code:", code)
@@ -152,6 +155,7 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 		Headers:    map[string]string{"Location": shortURL.LongURL},
 	}, nil
 }
+
 
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Received request:", req)
