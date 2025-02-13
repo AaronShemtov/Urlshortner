@@ -86,7 +86,8 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 	}
 
 	// Prepare response with short URL
-	response := map[string]string{"short_url": fmt.Sprintf("https://u.1ms.my/r/%s", code)}
+//	response := map[string]string{"short_url": fmt.Sprintf("https://u.1ms.my/r/%s", code)}
+response := map[string]string{"short_url": fmt.Sprintf("https://q4qoiz3fsjtv4rkvvizhg7yaci0zwpro.lambda-url.eu-central-1.on.aws/r/%s", code)}
 	respBody, _ := json.Marshal(response)
 
 	log.Println("Successfully created short URL:", response)
