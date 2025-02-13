@@ -70,7 +70,7 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 
 	log.Println("Generated short URL entry:", shortURL)
 
-	// Put the item into DynamoDB with ExecutionID and Code as partition and sort keys
+	// Put the  item into DynamoDB with ExecutionID and Code as partition and sort keys
 	_, err := db.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
 		Item: map[string]*dynamodb.AttributeValue{
