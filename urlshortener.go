@@ -94,27 +94,31 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 	return events.APIGatewayProxyResponse{StatusCode: http.StatusOK, Body: string(respBody)}, nil
 }
 
-// Handle redirection based on short code
 func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
-	// Access the path from RequestContext
-	log.Println("Processing redirect request for code:", req.RequestContext.HTTP.Path)
+	// Access the path from RequestContext and ignore the full URL (only take the path part)
+	log.Println("Processing redirect request...")
 
-	// Extract short code from the URL path after the first `/`
-	// For example, "/JZWfKa" -> "JZWfKa"
-	code := ""
+	// Extract short code from the URL path after the base URL
+	// Example: "https://q4qoiz3fsjtv4rkvvizhg7yaci0zwpro.lambda-url.eu-central-1.on.aws/YmagWu"
+	// Extract only "/YmagWu", which means split by "/"
 	parts := strings.Split(req.RequestContext.HTTP.Path, "/")
-	if len(parts) > 1 {
-		code = parts[1] // Extract the short code part
-	}
 
-	log.Println("Extracted code:", code)
-
-	if code == "" {
+	if len(parts) <= 1 {
 		log.Println("No valid short code found in the path")
 		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusBadRequest,
 			Body:       "Invalid short code in the path",
 		}, nil
+	}
+
+	// The short code is the last part after the base URL
+	code := parts[len(parts)-1]
+
+	log.Println("Extracted code:", code)
+
+	if code == "" {
+		log.Println("Short code is empty")
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest, Body: "Invalid short code"}, nil
 	}
 
 	// Fetch the item from DynamoDB using the short code as the key in the GSI
