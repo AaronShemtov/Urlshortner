@@ -96,7 +96,7 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 	parts := strings.Split(req.RequestContext.HTTP.Path, "/")
 	if len(parts) <= 1 {
 		log.Println("No valid short code found in the path")
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest, Body: "Invalid short code in the path"}, nil
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest, Body: "Invalid short code"}, nil
 	}
 
 	code := parts[len(parts)-1]
@@ -107,11 +107,11 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest, Body: "Invalid short code"}, nil
 	}
 
+	// Query DynamoDB using the short code
 	log.Println("Querying DynamoDB for code:", code)
-
 	result, err := db.Query(&dynamodb.QueryInput{
 		TableName:              aws.String(tableName),
-		IndexName:             aws.String("CodeIndexName"),
+		IndexName:              aws.String("CodeIndexName"),
 		KeyConditionExpression: aws.String("Code = :code"),
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
 			":code": {S: aws.String(code)},
@@ -123,33 +123,35 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 	}
 
 	log.Println("DynamoDB query result count:", len(result.Items))
-
 	if len(result.Items) == 0 {
 		log.Println("Short URL not found for code:", code)
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusNotFound, Body: "URL not found"}, nil
 	}
 
+	// Print the raw DynamoDB result
 	log.Println("Retrieved entry from DynamoDB:", result.Items[0])
 
-	var shortURL ShortURL
-	err = dynamodbattribute.UnmarshalMap(result.Items[0], &shortURL)
-	if err != nil {
-		log.Println("Error unmarshaling DynamoDB response:", err)
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Internal error"}, err
+	// Extract LongURL manually before unmarshaling
+	longURLAttr, exists := result.Items[0]["LongURL"]
+	if !exists || longURLAttr.S == nil {
+		log.Println("LongURL attribute is missing in DynamoDB entry")
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Invalid data in database"}, nil
 	}
+	longURL := *longURLAttr.S
+	log.Println("Retrieved LongURL:", longURL)
 
-	log.Println("Retrieved LongURL:", shortURL.LongURL)
-
-	if shortURL.LongURL == "" {
+	if longURL == "" {
 		log.Println("Retrieved LongURL is empty for code:", code)
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusNotFound, Body: "URL not found"}, nil
 	}
 
+	// Redirect to the original URL
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusMovedPermanently,
-		Headers:    map[string]string{"Location": shortURL.LongURL},
+		Headers:    map[string]string{"Location": longURL},
 	}, nil
 }
+
 
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Received request:", req)
