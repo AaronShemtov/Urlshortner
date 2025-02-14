@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>1ms URL Shortener - Fastest URL Shortening</title>
+    <link rel="icon" type="image/x-icon" href="favicon_round.ico">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,9 +13,15 @@
             align-items: center;
             height: 100vh;
             flex-direction: column;
-            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            background: url('websitebanner.webp') no-repeat center center/cover;
             color: white;
             text-align: center;
+            position: relative;
+        }
+        .container {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 20px;
+            border-radius: 10px;
         }
         h1 {
             font-size: 28px;
@@ -47,29 +54,39 @@
         }
         .result {
             margin-top: 20px;
-            font-size: 18px;
-        }
-        img {
-            width: 100px;
-            margin-bottom: 10px;
+            font-size: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            color: #000;
+            font-weight: bold;
+            display: inline-block;
         }
         .loading {
             display: none;
             font-size: 16px;
             margin-top: 10px;
         }
+        .result a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .result a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
-    <img src="https://via.placeholder.com/100" alt="1ms Logo">
-    <h1>1ms URL Shortener</h1>
-    <p>Shorten your links at lightning speed! ⚡</p>
-    
-    <input type="text" id="longUrl" placeholder="Enter URL to shorten">
-    <button onclick="shortenUrl()">Shorten Now</button>
-    
-    <p class="loading" id="loading">⏳ Shortening URL...</p>
-    <div class="result" id="result"></div>
+    <div class="container">
+        <h1>1ms URL Shortener</h1>
+        <p>Shorten your links at lightning speed! ⚡</p>
+        
+        <input type="text" id="longUrl" placeholder="Enter URL to shorten">
+        <button onclick="shortenUrl()">Shorten Now</button>
+        
+        <p class="loading" id="loading">⏳ Shortening URL...</p>
+        <div class="result" id="result"></div>
+    </div>
 
     <script>
         async function shortenUrl() {
@@ -101,7 +118,8 @@
                 const data = await response.json();
 
                 if (data.short_url) {
-                    resultDiv.innerHTML = `🚀 Your short URL: <a href="${data.short_url}" target="_blank">${data.short_url}</a>`;
+                    resultDiv.innerHTML = `🚀 Your short URL: <a href="https://${data.short_url}" target="_blank" id="shortUrl">http://${data.short_url}</a>`;
+                    resultDiv.style.display = "block";
                 } else {
                     throw new Error("Invalid response from server");
                 }
