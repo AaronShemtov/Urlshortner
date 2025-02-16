@@ -141,17 +141,8 @@
                 loadingText.style.display = "none";
             }
         }
-
-        function copyToClipboard() {
-            const shortUrl = document.getElementById("shortUrl");
-            navigator.clipboard.writeText(shortUrl.href).then(() => {
-                alert("Shortened URL copied to clipboard!");
-            }).catch(err => {
-                console.error("Failed to copy: ", err);
-            });
-        }
     </script>
-    <footer style="margin-top: 20px; text-align: center; color: white; font-size: 16px; background: rgba(0, 100, 0, 0.8); padding: 10px; border-radius: 5px;">
+    <footer style="margin-top: 20px; text-align: center; color: white; font-size: 16px; background: rgba(0, 80, 0, 0.9); padding: 10px; border-radius: 5px;">
         Made by DevOps Aaron Shemtov
         <a href="https://t.me/ashemtov" target="_blank" style="color: #ffffff; font-weight: bold; text-decoration: underline;">Telegram</a> |
         <a href="https://linkedin.com/in/aaronshemtov" target="_blank" style="color: #ffffff; font-weight: bold; text-decoration: underline;">LinkedIn</a>
