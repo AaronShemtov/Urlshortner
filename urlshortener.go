@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -55,6 +56,57 @@ func generateShortCode(length int) string {
 	}
 	log.Println("Generated short code:", string(code))
 	return string(code)
+}
+
+// Handle URL shortening
+func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
+	log.Println("Processing shortenURL request...")
+
+	var request ShortenRequest
+	if err := json.Unmarshal([]byte(req.Body), &request); err != nil {
+		log.Println("Error parsing JSON request body:", err)
+		return createResponse(http.StatusBadRequest, "Invalid JSON"), nil
+	}
+
+	if request.URL == "" {
+		log.Println("Missing URL in request")
+		return createResponse(http.StatusBadRequest, "Missing URL"), nil
+	}
+
+	// Generate short code and ExecutionID
+	code := generateShortCode(3)
+	executionID := uuid.New().String()
+	shortURL := ShortURL{
+		ExecutionID: executionID,
+		Code:        code,
+		LongURL:     request.URL,
+		CreatedAt:   time.Now().Format(time.RFC3339),
+	}
+
+	log.Println("Generated short URL entry:", shortURL)
+
+	// Store in DynamoDB
+	_, err := db.PutItem(&dynamodb.PutItemInput{
+		TableName: aws.String(tableName),
+		Item: map[string]*dynamodb.AttributeValue{
+			"ExecutionID": {S: aws.String(shortURL.ExecutionID)},
+			"Code":        {S: aws.String(shortURL.Code)},
+			"LongURL":     {S: aws.String(shortURL.LongURL)},
+			"CreatedAt":   {S: aws.String(shortURL.CreatedAt)},
+		},
+	})
+	if err != nil {
+		log.Println("Error saving item to DynamoDB:", err)
+		return createResponse(http.StatusInternalServerError, "Database error"), nil
+	}
+
+	shortURLResponse := map[string]string{
+		"short_url": fmt.Sprintf("https://1ms.my/%s", code),
+	}
+	respBody, _ := json.Marshal(shortURLResponse)
+
+	log.Println("Successfully created short URL:", shortURLResponse)
+	return createResponse(http.StatusOK, string(respBody)), nil
 }
 
 // Handle custom URL creation
@@ -130,16 +182,14 @@ func createCustomURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProx
 	return createResponse(http.StatusOK, string(respBody)), nil
 }
 
-// Route request d
+// Route request handler
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	switch req.RequestContext.HTTP.Method {
 	case "POST":
 		if req.RawPath == "/createcustom" {
 			return createCustomURL(req)
 		}
-		return createResponse(http.StatusNotImplemented, "Shorten URL not implemented"), nil
-	case "GET":
-		return createResponse(http.StatusNotImplemented, "Redirect URL not implemented"), nil
+		return shortenURL(req)
 	case "OPTIONS":
 		return createResponse(http.StatusOK, ""), nil
 	default:

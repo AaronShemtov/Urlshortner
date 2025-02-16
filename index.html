@@ -176,6 +176,15 @@
         function clearInput() {
             document.getElementById('longUrl').value = '';
         }
+        
+        function copyToClipboard() {
+            const shortUrl = document.getElementById('shortUrl').innerText;
+            navigator.clipboard.writeText(shortUrl).then(() => {
+                showPopup("Shortened URL copied to clipboard!");
+            }).catch(() => {
+                showPopup("Failed to copy URL");
+            });
+        }
     </script>
 </body>
 </html>
