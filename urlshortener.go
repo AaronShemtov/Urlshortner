@@ -72,7 +72,7 @@ func createCustomURL(req events.APIGatewayProxyRequest) (events.APIGatewayProxyR
 	// Check if custom code already exists
 	result, err := db.GetItem(&dynamodb.GetItemInput{
 		TableName: aws.String(tableName),
-		Key:       map[string]*dynamodb.AttributeValue{"Code": {S: aws.String(request.Code)}}
+		Key:       map[string]*dynamodb.AttributeValue{"Code": {S: aws.String(request.Code)}},
 	})
 	if err != nil {
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError, Body: "Database error"}, nil
@@ -104,7 +104,7 @@ func storeShortURL(url, code string) (events.APIGatewayProxyResponse, error) {
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError}, err
 	}
 
-	response := map[string]string{"short_url": fmt.Sprintf("https://u.1ms.my/r/%s", code)}
+	response := map[string]string{"short_url": fmt.Sprintf("https://1ms.my/%s", code)}
 	respBody, _ := json.Marshal(response)
 
 	return events.APIGatewayProxyResponse{StatusCode: http.StatusOK, Body: string(respBody)}, nil
@@ -115,7 +115,7 @@ func redirectURL(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 
 	result, err := db.GetItem(&dynamodb.GetItemInput{
 		TableName: aws.String(tableName),
-		Key:       map[string]*dynamodb.AttributeValue{"Code": {S: aws.String(code)}}
+		Key:       map[string]*dynamodb.AttributeValue{"Code": {S: aws.String(code)}},
 	})
 	if err != nil || result.Item == nil {
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusNotFound, Body: "URL not found"}, nil
