@@ -125,7 +125,12 @@ func redirectURL(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusMovedPermanently,
-		Headers:    map[string]string{"Location": shortURL.LongURL},
+		Headers: map[string]string{
+			"Location": shortURL.LongURL,
+			"Access-Control-Allow-Origin": "*",
+			"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+			"Access-Control-Allow-Headers": "Content-Type",
+		},
 	}, nil
 }
 
@@ -138,6 +143,16 @@ func handler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse,
 		return shortenURL(req)
 	case "GET":
 		return redirectURL(req)
+	case "OPTIONS":
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusOK,
+			Headers: map[string]string{
+				"Access-Control-Allow-Origin": "*",
+				"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+				"Access-Control-Allow-Headers": "Content-Type",
+			},
+			Body: "",
+		}, nil
 	default:
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusMethodNotAllowed}, nil
 	}
