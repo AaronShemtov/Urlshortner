@@ -18,14 +18,14 @@ import (
 )
 
 type ShortenRequest struct {
-	URL string json:"url"
+	URL string `json:"url"`
 }
 
 type ShortURL struct {
-	ExecutionID string json:"execution_id"
-	Code        string json:"code"
-	LongURL     string json:"long_url"
-	CreatedAt   string json:"created_at"
+	ExecutionID string `json:"execution_id"`
+	Code        string `json:"code"`
+	LongURL     string `json:"long_url"`
+	CreatedAt   string `json:"created_at"`
 }
 
 var db = dynamodb.New(session.Must(session.NewSession()))
@@ -175,7 +175,7 @@ func createResponse(statusCode int, body string) events.APIGatewayProxyResponse 
 	}
 }
 
-// Route request d
+// Route request
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("======== NEW REQUEST RECEIVED ========")
 	log.Println("Received RawPath:", req.RawPath)
