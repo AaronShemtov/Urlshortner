@@ -108,10 +108,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>1ms URL Shortener</h1>
+        <h1>1ms Link Shortener</h1>
         <p>Shorten your links at lightning speed! ⚡</p>
         
-        <input type="text" id="longUrl" placeholder="Enter URL to shorten">
+        <input type="text" id="longUrl" placeholder="Enter link to shorten">
         <button onclick="shortenUrl()">Shorten Now</button>
         <button onclick="pasteFromClipboard()">Paste</button>
         <button onclick="clearInput()">Clear</button>
@@ -150,7 +150,7 @@
                 document.getElementById('loading').style.display = 'none';
                 const data = await response.json();
                 if (data.short_url) {
-                    document.getElementById('result').innerHTML = `🚀 Your short URL: <a href="${data.short_url}" target="_blank" id="shortUrl">${data.short_url}</a> <button onclick="copyToClipboard()">Copy</button>`;
+                    document.getElementById('result').innerHTML = `🚀 Your short link: <a href="${data.short_url}" target="_blank" id="shortUrl">${data.short_url}</a> <button onclick="copyToClipboard()">Copy</button>`;
                 } else {
                     showPopup("Error shortening URL");
                 }

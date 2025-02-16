@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"fmt"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -93,7 +94,11 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 		return createResponse(http.StatusInternalServerError, "Database error"), nil
 	}
 
-	return createResponse(http.StatusOK, "Shortened URL created"), nil
+	responseBody, _ := json.Marshal(map[string]string{
+		"short_url": fmt.Sprintf("https://1ms.my/%s", code),
+	})
+
+	return createResponse(http.StatusOK, string(responseBody)), nil
 }
 
 // Handle URL redirection
