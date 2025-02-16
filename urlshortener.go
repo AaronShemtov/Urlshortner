@@ -117,7 +117,7 @@ func createCustomURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProx
 	return createResponse(http.StatusOK, string(respBody)), nil
 }
 
-// Route request d
+// Route request dd
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	switch req.RequestContext.HTTP.Method {
 	case "POST":
