@@ -94,6 +94,7 @@
         <input type="text" id="longUrl" placeholder="Enter URL to shorten">
         <button onclick="shortenUrl()">Shorten Now</button>
         <button onclick="pasteFromClipboard()">Paste</button>
+        <button onclick="clearInput()">Clear</button>
         
         <p class="loading" id="loading">⏳ Shortening URL...</p>
         <div class="result" id="result"></div>
@@ -152,6 +153,14 @@
                 alert('Clipboard API not supported in this browser. Please use Ctrl+V or Command+V to paste.');
             }
         }
-    </script>
+        function clearInput() {
+        document.getElementById('longUrl').value = '';
+    }
+</script>
+    <footer style="margin-top: 20px; text-align: center; color: white; font-size: 16px; background: rgba(0, 255, 0, 0.3); padding: 10px; border-radius: 5px;">
+        Made by DevOps Aaron Shemtov
+        <a href="https://t.me/ashemtov" target="_blank" style="color: #ffffff; font-weight: bold; text-decoration: underline;">Telegram</a> |
+        <a href="https://linkedin.com/in/aaronshemtov" target="_blank" style="color: #ffffff; font-weight: bold; text-decoration: underline;">LinkedIn</a>
+    </footer>
 </body>
 </html>
