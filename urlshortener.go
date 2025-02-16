@@ -2,10 +2,10 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/google/uuid"
 )
 
 type ShortenRequest struct {
@@ -57,6 +56,46 @@ func generateShortCode(length int) string {
 	return string(code)
 }
 
+// Handle URL shortening
+func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
+	log.Println("Processing shortenURL request...")
+
+	var request ShortenRequest
+	if err := json.Unmarshal([]byte(req.Body), &request); err != nil {
+		log.Println("Error parsing JSON request body:", err)
+		return createResponse(http.StatusBadRequest, "Invalid JSON"), nil
+	}
+
+	if request.URL == "" {
+		log.Println("Missing URL in request")
+		return createResponse(http.StatusBadRequest, "Missing URL"), nil
+	}
+
+	code := generateShortCode(3)
+	shortURL := ShortURL{
+		ExecutionID: code,
+		Code:        code,
+		LongURL:     request.URL,
+		CreatedAt:   time.Now().Format(time.RFC3339),
+	}
+
+	_, err := db.PutItem(&dynamodb.PutItemInput{
+		TableName: aws.String(tableName),
+		Item: map[string]*dynamodb.AttributeValue{
+			"ExecutionID": {S: aws.String(shortURL.ExecutionID)},
+			"Code":        {S: aws.String(shortURL.Code)},
+			"LongURL":     {S: aws.String(shortURL.LongURL)},
+			"CreatedAt":   {S: aws.String(shortURL.CreatedAt)},
+		},
+	})
+	if err != nil {
+		log.Println("Error saving item to DynamoDB:", err)
+		return createResponse(http.StatusInternalServerError, "Database error"), nil
+	}
+
+	return createResponse(http.StatusOK, "Shortened URL created"), nil
+}
+
 // Handle URL redirection
 func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Processing redirect request for path:", req.RawPath)
@@ -69,7 +108,6 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 	code := parts[len(parts)-1]
 	log.Println("Extracted short code:", code)
 
-	// Query DynamoDB
 	result, err := db.Query(&dynamodb.QueryInput{
 		TableName:              aws.String(tableName),
 		IndexName:              aws.String("CodeIndexName"),
@@ -103,9 +141,6 @@ func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRes
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	switch req.RequestContext.HTTP.Method {
 	case "POST":
-		if req.RawPath == "/createcustom" {
-			return createCustomURL(req)
-		}
 		return shortenURL(req)
 	case "GET":
 		return redirectURL(req)

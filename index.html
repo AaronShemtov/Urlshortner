@@ -104,11 +104,6 @@
             text-align: center;
             z-index: 1000;
         }
-        .popup button {
-            margin-top: 10px;
-            background-color: #ffcc00;
-            color: black;
-        }
     </style>
 </head>
 <body>
@@ -127,17 +122,16 @@
     
     <div class="popup" id="popup">
         <p id="popupMessage"></p>
-        <button onclick="closePopup()">OK</button>
     </div>
 
     <script>
         function showPopup(message) {
+            const popup = document.getElementById('popup');
             document.getElementById('popupMessage').innerText = message;
-            document.getElementById('popup').style.display = 'block';
-        }
-
-        function closePopup() {
-            document.getElementById('popup').style.display = 'none';
+            popup.style.display = 'block';
+            setTimeout(() => {
+                popup.style.display = 'none';
+            }, 700);
         }
 
         async function shortenUrl() {
@@ -180,7 +174,7 @@
         function copyToClipboard() {
             const shortUrl = document.getElementById('shortUrl').innerText;
             navigator.clipboard.writeText(shortUrl).then(() => {
-                showPopup("Shortened URL copied to clipboard!");
+                showPopup("Link copied!");
             }).catch(() => {
                 showPopup("Failed to copy URL");
             });
