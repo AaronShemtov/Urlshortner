@@ -6,7 +6,6 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -31,6 +30,20 @@ type ShortURL struct {
 
 var db = dynamodb.New(session.Must(session.NewSession()))
 var tableName = "LongShortLinks"
+
+// Universal response function with CORS headers
+func createResponse(statusCode int, body string) events.APIGatewayProxyResponse {
+	return events.APIGatewayProxyResponse{
+		StatusCode: statusCode,
+		Headers: map[string]string{
+			"Content-Type":                "application/json",
+			"Access-Control-Allow-Origin": "*",
+			"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+			"Access-Control-Allow-Headers": "Content-Type",
+		},
+		Body: body,
+	}
+}
 
 // Generate a random short code
 func generateShortCode(length int) string {
@@ -117,16 +130,16 @@ func createCustomURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProx
 	return createResponse(http.StatusOK, string(respBody)), nil
 }
 
-// Route request dd
+// Route request d
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	switch req.RequestContext.HTTP.Method {
 	case "POST":
 		if req.RawPath == "/createcustom" {
 			return createCustomURL(req)
 		}
-		return shortenURL(req)
+		return createResponse(http.StatusNotImplemented, "Shorten URL not implemented"), nil
 	case "GET":
-		return redirectURL(req)
+		return createResponse(http.StatusNotImplemented, "Redirect URL not implemented"), nil
 	case "OPTIONS":
 		return createResponse(http.StatusOK, ""), nil
 	default:
