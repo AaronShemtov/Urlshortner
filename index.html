@@ -83,6 +83,7 @@
         
         <input type="text" id="longUrl" placeholder="Enter URL to shorten">
         <button onclick="shortenUrl()">Shorten Now</button>
+        <button onclick="pasteFromClipboard()">Paste</button>
         
         <p class="loading" id="loading">⏳ Shortening URL...</p>
         <div class="result" id="result"></div>
@@ -118,7 +119,7 @@
                 const data = await response.json();
 
                 if (data.short_url) {
-                    resultDiv.innerHTML = `🚀 Your short URL: <a href="https://${data.short_url}" target="_blank" id="shortUrl">http://${data.short_url}</a>`;
+                    resultDiv.innerHTML = `🚀 Your short URL: <a href="${data.short_url}" target="_blank" id="shortUrl">${data.short_url}</a>`;
                     resultDiv.style.display = "block";
                 } else {
                     throw new Error("Invalid response from server");
@@ -127,6 +128,18 @@
                 console.error("Error:", error);
                 resultDiv.innerHTML = "❌ Failed to shorten URL. Please try again.";
                 loadingText.style.display = "none";
+            }
+        }
+
+        function pasteFromClipboard() {
+            if (navigator.clipboard && navigator.clipboard.readText) {
+                navigator.clipboard.readText().then(text => {
+                    document.getElementById('longUrl').value = text;
+                }).catch(err => {
+                    console.error('Failed to read clipboard: ', err);
+                });
+            } else {
+                alert('Clipboard API not supported in this browser. Please use Ctrl+V or Command+V to paste.');
             }
         }
     </script>
