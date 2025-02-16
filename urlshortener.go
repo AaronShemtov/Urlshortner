@@ -59,7 +59,7 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 	}
 
 	// Generate short code and ExecutionID
-	code := generateShortCode(4)
+	code := generateShortCode(3)
 	executionID := uuid.New().String()
 	shortURL := ShortURL{
 		ExecutionID: executionID,
