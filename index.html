@@ -130,7 +130,7 @@
                 const data = await response.json();
 
                 if (data.short_url) {
-                    resultDiv.innerHTML = `🚀 Your short URL: <a href="${data.short_url}" target="_blank" id="shortUrl">${data.short_url}</a>`;
+                    resultDiv.innerHTML = `🚀 Your short URL: <a href="${data.short_url}" target="_blank" id="shortUrl">${data.short_url}</a> <button onclick="copyToClipboard()">Copy</button>`;
                     resultDiv.style.display = "block";
                 } else {
                     throw new Error("Invalid response from server");
@@ -142,22 +142,16 @@
             }
         }
 
-        function pasteFromClipboard() {
-            if (navigator.clipboard && navigator.clipboard.readText) {
-                navigator.clipboard.readText().then(text => {
-                    document.getElementById('longUrl').value = text;
-                }).catch(err => {
-                    console.error('Failed to read clipboard: ', err);
-                });
-            } else {
-                alert('Clipboard API not supported in this browser. Please use Ctrl+V or Command+V to paste.');
-            }
+        function copyToClipboard() {
+            const shortUrl = document.getElementById("shortUrl");
+            navigator.clipboard.writeText(shortUrl.href).then(() => {
+                alert("Shortened URL copied to clipboard!");
+            }).catch(err => {
+                console.error("Failed to copy: ", err);
+            });
         }
-        function clearInput() {
-        document.getElementById('longUrl').value = '';
-    }
-</script>
-    <footer style="margin-top: 20px; text-align: center; color: white; font-size: 16px; background: rgba(0, 255, 0, 0.3); padding: 10px; border-radius: 5px;">
+    </script>
+    <footer style="margin-top: 20px; text-align: center; color: white; font-size: 16px; background: rgba(0, 100, 0, 0.8); padding: 10px; border-radius: 5px;">
         Made by DevOps Aaron Shemtov
         <a href="https://t.me/ashemtov" target="_blank" style="color: #ffffff; font-weight: bold; text-decoration: underline;">Telegram</a> |
         <a href="https://linkedin.com/in/aaronshemtov" target="_blank" style="color: #ffffff; font-weight: bold; text-decoration: underline;">LinkedIn</a>
