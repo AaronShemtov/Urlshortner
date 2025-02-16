@@ -18,7 +18,8 @@ import (
 )
 
 type ShortenRequest struct {
-	URL string `json:"url"`
+	URL  string `json:"url"`
+	Code string `json:"code,omitempty"`
 }
 
 type ShortURL struct {
@@ -43,9 +44,9 @@ func generateShortCode(length int) string {
 	return string(code)
 }
 
-// Handle URL shortening
-func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
-	log.Println("Processing shortenURL request...")
+// Handle custom URL creation
+func createCustomURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
+	log.Println("Processing createCustomURL request...")
 
 	var request ShortenRequest
 	if err := json.Unmarshal([]byte(req.Body), &request); err != nil {
@@ -53,25 +54,47 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 		return createResponse(http.StatusBadRequest, "Invalid JSON"), nil
 	}
 
-	if request.URL == "" {
-		log.Println("Missing URL in request")
-		return createResponse(http.StatusBadRequest, "Missing URL"), nil
+	if request.URL == "" || request.Code == "" {
+		log.Println("Missing URL or custom code in request")
+		return createResponse(http.StatusBadRequest, "Missing URL or custom code"), nil
 	}
 
-	// Generate short code and ExecutionID
-	code := generateShortCode(3)
+	if len(request.Code) < 8 {
+		log.Println("Custom code too short")
+		return createResponse(http.StatusBadRequest, "Custom code must be at least 8 characters"), nil
+	}
+
+	// Check if custom code is already in use
+	result, err := db.Query(&dynamodb.QueryInput{
+		TableName:              aws.String(tableName),
+		IndexName:              aws.String("CodeIndexName"),
+		KeyConditionExpression: aws.String("Code = :code"),
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":code": {S: aws.String(request.Code)},
+		},
+	})
+	if err != nil {
+		log.Println("Error querying DynamoDB:", err)
+		return createResponse(http.StatusInternalServerError, "Database error"), nil
+	}
+
+	if len(result.Items) > 0 {
+		log.Println("Custom code already exists:", request.Code)
+		return createResponse(http.StatusConflict, "Custom code already in use"), nil
+	}
+
 	executionID := uuid.New().String()
 	shortURL := ShortURL{
 		ExecutionID: executionID,
-		Code:        code,
+		Code:        request.Code,
 		LongURL:     request.URL,
 		CreatedAt:   time.Now().Format(time.RFC3339),
 	}
 
-	log.Println("Generated short URL entry:", shortURL)
+	log.Println("Generated custom short URL entry:", shortURL)
 
 	// Store in DynamoDB
-	_, err := db.PutItem(&dynamodb.PutItemInput{
+	_, err = db.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
 		Item: map[string]*dynamodb.AttributeValue{
 			"ExecutionID": {S: aws.String(shortURL.ExecutionID)},
@@ -81,121 +104,36 @@ func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResp
 		},
 	})
 	if err != nil {
-		log.Println("Error saving item to DynamoDB:", err)
+		log.Println("Error saving custom link to DynamoDB:", err)
 		return createResponse(http.StatusInternalServerError, "Database error"), nil
 	}
 
-	shortURLResponse := map[string]string{
-		"short_url": fmt.Sprintf("https://1ms.my/%s", code),
+	customURLResponse := map[string]string{
+		"short_url": fmt.Sprintf("https://1ms.my/%s", request.Code),
 	}
-	respBody, _ := json.Marshal(shortURLResponse)
+	respBody, _ := json.Marshal(customURLResponse)
 
-	log.Println("Successfully created short URL:", shortURLResponse)
+	log.Println("Successfully created custom short URL:", customURLResponse)
 	return createResponse(http.StatusOK, string(respBody)), nil
-}
-
-// Handle redirection
-func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
-	log.Println("Processing redirect request...")
-	log.Println("Received RawPath:", req.RawPath) // Debugging
-
-	// Extract short code from URL path using RawPath
-	parts := strings.Split(req.RawPath, "/")
-	if len(parts) <= 1 {
-		log.Println("No valid short code found in path")
-		return createResponse(http.StatusBadRequest, "Invalid short code"), nil
-	}
-
-	code := parts[len(parts)-1]
-	log.Println("Extracted code (case-sensitive):", code)
-
-	if code == "" {
-		log.Println("Short code is empty")
-		return createResponse(http.StatusBadRequest, "Invalid short code"), nil
-	}
-
-	// Query DynamoDB using the exact code
-	log.Println("Querying DynamoDB for code:", code)
-	result, err := db.Query(&dynamodb.QueryInput{
-		TableName:              aws.String(tableName),
-		IndexName:              aws.String("CodeIndexName"),
-		KeyConditionExpression: aws.String("Code = :code"),
-		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
-			":code": {S: aws.String(code)},
-		},
-	})
-	if err != nil {
-		log.Println("Error retrieving item from DynamoDB:", err)
-		return createResponse(http.StatusInternalServerError, "Database error"), nil
-	}
-
-	log.Println("DynamoDB query result count:", len(result.Items))
-	if len(result.Items) == 0 {
-		log.Println("Short URL not found for code:", code)
-		return createResponse(http.StatusNotFound, "URL not found"), nil
-	}
-
-	// Extract LongURL
-	longURLAttr, exists := result.Items[0]["LongURL"]
-	if !exists || longURLAttr.S == nil {
-		log.Println("LongURL attribute missing in DynamoDB entry")
-		return createResponse(http.StatusInternalServerError, "Invalid data in database"), nil
-	}
-	longURL := *longURLAttr.S
-	log.Println("Retrieved LongURL:", longURL)
-
-	if longURL == "" {
-		log.Println("Retrieved LongURL is empty")
-		return createResponse(http.StatusNotFound, "URL not found"), nil
-	}
-
-	// Redirect user
-	return events.APIGatewayProxyResponse{
-		StatusCode: http.StatusMovedPermanently,
-		Headers: map[string]string{
-			"Location": longURL,
-			"Access-Control-Allow-Origin": "*",
-			"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-			"Access-Control-Allow-Headers": "Content-Type",
-		},
-	}, nil
-}
-
-// Universal response function with CORS headers
-func createResponse(statusCode int, body string) events.APIGatewayProxyResponse {
-	return events.APIGatewayProxyResponse{
-		StatusCode: statusCode,
-		Headers: map[string]string{
-			"Content-Type":                "application/json",
-			"Access-Control-Allow-Origin": "*",
-			"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-			"Access-Control-Allow-Headers": "Content-Type",
-		},
-		Body: body,
-	}
 }
 
 // Route request d
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
-	log.Println("======== NEW REQUEST RECEIVED ========")
-	log.Println("Received RawPath:", req.RawPath)
-	log.Println("HTTP Method:", req.RequestContext.HTTP.Method)
-
 	switch req.RequestContext.HTTP.Method {
 	case "POST":
+		if req.RawPath == "/createcustom" {
+			return createCustomURL(req)
+		}
 		return shortenURL(req)
 	case "GET":
 		return redirectURL(req)
 	case "OPTIONS":
 		return createResponse(http.StatusOK, ""), nil
 	default:
-		log.Println("Unsupported method:", req.RequestContext.HTTP.Method)
 		return createResponse(http.StatusMethodNotAllowed, "Method Not Allowed"), nil
 	}
 }
 
-
 func main() {
-	log.Println("Lambda function started...")
 	lambda.Start(handler)
 }

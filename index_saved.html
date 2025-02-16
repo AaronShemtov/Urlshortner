@@ -91,24 +91,6 @@
         .result a:hover {
             text-decoration: underline;
         }
-        .popup {
-            display: none;
-            position: fixed;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 20px;
-            border-radius: 5px;
-            text-align: center;
-            z-index: 1000;
-        }
-        .popup button {
-            margin-top: 10px;
-            background-color: #ffcc00;
-            color: black;
-        }
     </style>
 </head>
 <body>
@@ -124,26 +106,65 @@
         <p class="loading" id="loading">⏳ Shortening URL...</p>
         <div class="result" id="result"></div>
     </div>
-    
-    <div class="popup" id="popup">
-        <p id="popupMessage"></p>
-        <button onclick="closePopup()">OK</button>
-    </div>
 
     <script>
-        function showPopup(message) {
-            document.getElementById('popupMessage').innerText = message;
-            document.getElementById('popup').style.display = 'block';
+        async function shortenUrl() {
+            const longUrl = document.getElementById('longUrl').value;
+            const resultDiv = document.getElementById('result');
+            const loadingText = document.getElementById('loading');
+
+            if (!longUrl) {
+                alert("Please enter a valid URL");
+                return;
+            }
+
+            resultDiv.innerHTML = "";
+            loadingText.style.display = "block";
+
+            try {
+                const response = await fetch('https://1ms.my/shorten', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: longUrl })
+                });
+
+                loadingText.style.display = "none";
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.short_url) {
+                    resultDiv.innerHTML = `🚀 Your short URL: <a href="${data.short_url}" target="_blank" id="shortUrl">${data.short_url}</a> <button onclick="copyToClipboard()">Copy</button>`;
+                    resultDiv.style.display = "block";
+                } else {
+                    throw new Error("Invalid response from server");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                resultDiv.innerHTML = "❌ Failed to shorten URL. Please try again.";
+                loadingText.style.display = "none";
+            }
         }
 
-        function closePopup() {
-            document.getElementById('popup').style.display = 'none';
+        function pasteFromClipboard() {
+            navigator.clipboard.readText().then(text => {
+                document.getElementById('longUrl').value = text;
+            }).catch(err => {
+                console.error("Failed to read clipboard: ", err);
+            });
         }
-
+        
+        function clearInput() {
+            document.getElementById('longUrl').value = '';
+        }
+        
         function copyToClipboard() {
             const shortUrl = document.getElementById("shortUrl").textContent;
             navigator.clipboard.writeText(shortUrl).then(() => {
-                showPopup("Shortened URL copied to clipboard!");
+                alert("Shortened URL copied to clipboard!");
             }).catch(err => {
                 console.error("Failed to copy: ", err);
             });
