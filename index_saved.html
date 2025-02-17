@@ -91,14 +91,27 @@
         .result a:hover {
             text-decoration: underline;
         }
+        .popup {
+            display: none;
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            text-align: center;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>1ms URL Shortener</h1>
+        <h1>1ms Link Shortener</h1>
         <p>Shorten your links at lightning speed! ⚡</p>
         
-        <input type="text" id="longUrl" placeholder="Enter URL to shorten">
+        <input type="text" id="longUrl" placeholder="Enter link to shorten">
         <button onclick="shortenUrl()">Shorten Now</button>
         <button onclick="pasteFromClipboard()">Paste</button>
         <button onclick="clearInput()">Clear</button>
@@ -106,54 +119,51 @@
         <p class="loading" id="loading">⏳ Shortening URL...</p>
         <div class="result" id="result"></div>
     </div>
+    
+    <div class="popup" id="popup">
+        <p id="popupMessage"></p>
+    </div>
 
     <script>
+        function showPopup(message) {
+            const popup = document.getElementById('popup');
+            document.getElementById('popupMessage').innerText = message;
+            popup.style.display = 'block';
+            setTimeout(() => {
+                popup.style.display = 'none';
+            }, 700);
+        }
+
         async function shortenUrl() {
             const longUrl = document.getElementById('longUrl').value;
-            const resultDiv = document.getElementById('result');
-            const loadingText = document.getElementById('loading');
-
             if (!longUrl) {
-                alert("Please enter a valid URL");
+                showPopup("Please enter a valid URL");
                 return;
             }
-
-            resultDiv.innerHTML = "";
-            loadingText.style.display = "block";
-
+            document.getElementById('loading').style.display = 'block';
             try {
                 const response = await fetch('https://1ms.my/shorten', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url: longUrl })
                 });
-
-                loadingText.style.display = "none";
-
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.status}`);
-                }
-
+                document.getElementById('loading').style.display = 'none';
                 const data = await response.json();
-
                 if (data.short_url) {
-                    resultDiv.innerHTML = `🚀 Your short URL: <a href="${data.short_url}" target="_blank" id="shortUrl">${data.short_url}</a> <button onclick="copyToClipboard()">Copy</button>`;
-                    resultDiv.style.display = "block";
+                    document.getElementById('result').innerHTML = `🚀 Your short link: <a href="${data.short_url}" target="_blank" id="shortUrl">${data.short_url}</a> <button onclick="copyToClipboard()">Copy</button>`;
                 } else {
-                    throw new Error("Invalid response from server");
+                    showPopup("Error shortening URL");
                 }
             } catch (error) {
-                console.error("Error:", error);
-                resultDiv.innerHTML = "❌ Failed to shorten URL. Please try again.";
-                loadingText.style.display = "none";
+                showPopup("Failed to shorten URL");
             }
         }
 
         function pasteFromClipboard() {
             navigator.clipboard.readText().then(text => {
                 document.getElementById('longUrl').value = text;
-            }).catch(err => {
-                console.error("Failed to read clipboard: ", err);
+            }).catch(() => {
+                showPopup("Clipboard access failed");
             });
         }
         
@@ -162,18 +172,13 @@
         }
         
         function copyToClipboard() {
-            const shortUrl = document.getElementById("shortUrl").textContent;
+            const shortUrl = document.getElementById('shortUrl').innerText;
             navigator.clipboard.writeText(shortUrl).then(() => {
-                alert("Shortened URL copied to clipboard!");
-            }).catch(err => {
-                console.error("Failed to copy: ", err);
+                showPopup("Link copied!");
+            }).catch(() => {
+                showPopup("Failed to copy URL");
             });
         }
     </script>
-    <footer style="margin-top: 20px; text-align: center; color: white; font-size: 16px; background: rgba(0, 80, 0, 0.9); padding: 10px; border-radius: 5px;">
-        Made by Aaron Shemtov [DevOps]
-        <a href="https://t.me/ashemtov" target="_blank" style="color: #ffffff; font-weight: bold; text-decoration: underline;">Telegram</a> |
-        <a href="https://linkedin.com/in/aaronshemtov" target="_blank" style="color: #ffffff; font-weight: bold; text-decoration: underline;">LinkedIn</a>
-    </footer>
 </body>
 </html>

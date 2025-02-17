@@ -22,6 +22,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>1ms URL Shortener - Fastest URL Shortening</title>
     <link rel="icon" type="image/x-icon" href="favicon_round.ico">
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -78,6 +79,7 @@
             color: #000;
             font-weight: bold;
             display: inline-block;
+            max-width: 90%;
         }
         .loading {
             display: none;
@@ -111,15 +113,23 @@
         <h1>1ms Link Shortener</h1>
         <p>Shorten your links at lightning speed! ⚡</p>
         
+        <!-- Original URL input -->
         <input type="text" id="longUrl" placeholder="Enter link to shorten">
         <button onclick="shortenUrl()">Shorten Now</button>
         <button onclick="pasteFromClipboard()">Paste</button>
         <button onclick="clearInput()">Clear</button>
-        
+
+        <!-- Custom code input -->
+        <div style="margin-top: 20px;">
+            <span style="margin-right: 5px;">https://1ms.my/</span>
+            <input type="text" id="customCode" placeholder="Enter custom code (optional)">
+            <button onclick="createCustomUrl()">Create Custom Link</button>
+        </div>
+
         <p class="loading" id="loading">⏳ Shortening URL...</p>
         <div class="result" id="result"></div>
     </div>
-    
+
     <div class="popup" id="popup">
         <p id="popupMessage"></p>
     </div>
@@ -159,6 +169,36 @@
             }
         }
 
+        async function createCustomUrl() {
+            const longUrl = document.getElementById('longUrl').value;
+            const customCode = document.getElementById('customCode').value;
+            if (!longUrl) {
+                showPopup("Please enter a valid URL");
+                return;
+            }
+            if (!customCode) {
+                showPopup("Please enter a custom code");
+                return;
+            }
+            document.getElementById('loading').style.display = 'block';
+            try {
+                const response = await fetch('https://1ms.my/createcustom', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: longUrl, code: customCode })
+                });
+                document.getElementById('loading').style.display = 'none';
+                const data = await response.json();
+                if (data.short_url) {
+                    document.getElementById('result').innerHTML = `🚀 Your custom short link: <a href="${data.short_url}" target="_blank" id="shortUrl">${data.short_url}</a> <button onclick="copyToClipboard()">Copy</button>`;
+                } else {
+                    showPopup("Error creating custom URL");
+                }
+            } catch (error) {
+                showPopup("Failed to create custom URL");
+            }
+        }
+
         function pasteFromClipboard() {
             navigator.clipboard.readText().then(text => {
                 document.getElementById('longUrl').value = text;
@@ -180,5 +220,10 @@
             });
         }
     </script>
+  <footer style="margin-top: 20px; text-align: center; color: white; font-size: 16px; background: rgba(0, 100, 0, 0.8); padding: 10px; border-radius: 5px;">
+        Made by Aaron Shemtov [DevOps]
+        <a href="https://t.me/ashemtov" target="_blank" style="color: #ffffff; font-weight: bold; text-decoration: underline;">Telegram</a> |
+        <a href="https://linkedin.com/in/aaronshemtov" target="_blank" style="color: #ffffff; font-weight: bold; text-decoration: underline;">LinkedIn</a>
+    </footer>
 </body>
 </html>
