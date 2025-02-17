@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -171,11 +172,59 @@ func createCustomURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProx
 	return createResponse(http.StatusOK, string(responseBody))
 }
 
+// Handle redirection for GET requests
+func redirectURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
+	log.Println("Processing redirect for GET request...")
+
+	// Extract short code from path (e.g. /abc -> abc)
+	parts := strings.Split(req.RawPath, "/")
+	if len(parts) < 2 {
+		log.Println("Invalid short code in path")
+		return createResponse(http.StatusBadRequest, "Invalid short code")
+	}
+	code := parts[len(parts)-1]
+
+	// Query DynamoDB by code
+	result, err := db.Query(&dynamodb.QueryInput{
+		TableName:              aws.String(tableName),
+		IndexName:              aws.String("CodeIndexName"), // Must match a GSI with `Code` as partition key
+		KeyConditionExpression: aws.String("Code = :code"),
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":code": {S: aws.String(code)},
+		},
+	})
+	if err != nil {
+		log.Println("Error querying DynamoDB for redirection:", err)
+		return createResponse(http.StatusInternalServerError, "Database error")
+	}
+	if len(result.Items) == 0 {
+		log.Println("Short code not found:", code)
+		return createResponse(http.StatusNotFound, "URL not found")
+	}
+
+	longURL := *result.Items[0]["LongURL"].S
+	log.Println("Redirecting to:", longURL)
+
+	// Return a 301 redirect
+	return events.APIGatewayProxyResponse{
+		StatusCode: http.StatusMovedPermanently,
+		Headers: map[string]string{
+			"Location":                longURL,
+			"Access-Control-Allow-Origin": "*",
+			"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+			"Access-Control-Allow-Headers": "Content-Type",
+		},
+	}, nil
+}
+
 // Route request handler
 func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
 	log.Println("Handling request. Method:", req.RequestContext.HTTP.Method, "Path:", req.RawPath)
 
 	switch req.RequestContext.HTTP.Method {
+	case "GET":
+		// This case is added so GET requests can do redirection
+		return redirectURL(req)
 	case "POST":
 		if req.RawPath == "/createcustom" {
 			return createCustomURL(req)
