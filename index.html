@@ -70,7 +70,7 @@
         button:hover {
             background-color: #ffdd44;
         }
-        \.result {
+        .result {
             display: none; /* hide the result initially */
             margin-top: 20px;
             font-size: 20px;
@@ -122,7 +122,7 @@
         <!-- Custom code input -->
         <div style="margin-top: 20px;">
             <span style="margin-right: 5px;">https://1ms.my/</span>
-            <input type="text" id="customCode" placeholder="Enter custom code (optional)">
+            <input type="text" id="customCode" placeholder="[OPTIONAL] Enter custom code - minimum 8 symbols">
             <button onclick="createCustomUrl()">Create Custom Link</button>
         </div>
 
@@ -160,12 +160,13 @@
                 document.getElementById('loading').style.display = 'none';
                 const data = await response.json();
                 if (data.short_url) {
-                    document.getElementById('result').innerHTML = `$&`;
+                    document.getElementById('result').innerHTML = `🚀 Your short link: <a href="${data.short_url}" target="_blank" id="shortUrl">${data.short_url}</a> <button onclick="copyToClipboard()">Copy</button>`;
                     document.getElementById('result').style.display = 'inline-block';
                 } else {
                     showPopup("Error shortening URL");
                 }
             } catch (error) {
+                document.getElementById('loading').style.display = 'none';
                 showPopup("Failed to shorten URL");
             }
         }
@@ -191,12 +192,13 @@
                 document.getElementById('loading').style.display = 'none';
                 const data = await response.json();
                 if (data.short_url) {
-                    document.getElementById('result').innerHTML = `$&`;
+                    document.getElementById('result').innerHTML = `🚀 Your custom short link: <a href="${data.short_url}" target="_blank" id="shortUrl">${data.short_url}</a> <button onclick="copyToClipboard()">Copy</button>`;
                     document.getElementById('result').style.display = 'inline-block';
                 } else {
                     showPopup("Error creating custom URL");
                 }
             } catch (error) {
+                document.getElementById('loading').style.display = 'none';
                 showPopup("Failed to create custom URL");
             }
         }
