@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
 	"time"
-	"fmt"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -54,6 +54,52 @@ func generateShortCode(length int) string {
 	}
 	log.Println("Generated short code:", string(code))
 	return string(code)
+}
+
+// Handle standard URL shortening
+func shortenURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyResponse, error) {
+	log.Println("Processing shortenURL request...")
+
+	var request ShortenRequest
+	if err := json.Unmarshal([]byte(req.Body), &request); err != nil {
+		log.Println("Error parsing JSON request body:", err)
+		return createResponse(http.StatusBadRequest, "Invalid JSON")
+	}
+
+	if request.URL == "" {
+		log.Println("Missing URL in request")
+		return createResponse(http.StatusBadRequest, "Missing URL")
+	}
+
+	code := generateShortCode(3)
+	shortURL := ShortURL{
+		ExecutionID: code,
+		Code:        code,
+		LongURL:     request.URL,
+		CreatedAt:   time.Now().Format(time.RFC3339),
+	}
+
+	log.Println("Saving short URL to DynamoDB:", shortURL)
+	_, err := db.PutItem(&dynamodb.PutItemInput{
+		TableName: aws.String(tableName),
+		Item: map[string]*dynamodb.AttributeValue{
+			"ExecutionID": {S: aws.String(shortURL.ExecutionID)},
+			"Code":        {S: aws.String(shortURL.Code)},
+			"LongURL":     {S: aws.String(shortURL.LongURL)},
+			"CreatedAt":   {S: aws.String(shortURL.CreatedAt)},
+		},
+	})
+	if err != nil {
+		log.Println("Error saving item to DynamoDB:", err)
+		return createResponse(http.StatusInternalServerError, "Database error")
+	}
+
+	responseBody, _ := json.Marshal(map[string]string{
+		"short_url": fmt.Sprintf("https://1ms.my/%s", code),
+	})
+	log.Println("Successfully created short URL:", string(responseBody))
+
+	return createResponse(http.StatusOK, string(responseBody))
 }
 
 // Handle custom URL creation
@@ -120,7 +166,7 @@ func createCustomURL(req events.LambdaFunctionURLRequest) (events.APIGatewayProx
 	responseBody, _ := json.Marshal(map[string]string{
 		"short_url": fmt.Sprintf("https://1ms.my/%s", request.Code),
 	})
-	log.Println("Successfully created custom short URL:", responseBody)
+	log.Println("Successfully created custom short URL:", string(responseBody))
 
 	return createResponse(http.StatusOK, string(responseBody))
 }
@@ -134,9 +180,7 @@ func handler(req events.LambdaFunctionURLRequest) (events.APIGatewayProxyRespons
 		if req.RawPath == "/createcustom" {
 			return createCustomURL(req)
 		}
-		return createResponse(http.StatusNotImplemented, "Shorten URL function not implemented")
-	case "GET":
-		return createResponse(http.StatusNotImplemented, "Redirect function not implemented")
+		return shortenURL(req)
 	case "OPTIONS":
 		return createResponse(http.StatusOK, "")
 	default:
