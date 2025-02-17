@@ -70,7 +70,8 @@
         button:hover {
             background-color: #ffdd44;
         }
-        .result {
+        \.result {
+            display: none; /* hide the result initially */
             margin-top: 20px;
             font-size: 20px;
             background: rgba(255, 255, 255, 0.8);
@@ -78,7 +79,6 @@
             border-radius: 5px;
             color: #000;
             font-weight: bold;
-            display: inline-block;
             max-width: 90%;
         }
         .loading {
@@ -160,7 +160,8 @@
                 document.getElementById('loading').style.display = 'none';
                 const data = await response.json();
                 if (data.short_url) {
-                    document.getElementById('result').innerHTML = `🚀 Your short link: <a href="${data.short_url}" target="_blank" id="shortUrl">${data.short_url}</a> <button onclick="copyToClipboard()">Copy</button>`;
+                    document.getElementById('result').innerHTML = `$&`;
+                    document.getElementById('result').style.display = 'inline-block';
                 } else {
                     showPopup("Error shortening URL");
                 }
@@ -190,7 +191,8 @@
                 document.getElementById('loading').style.display = 'none';
                 const data = await response.json();
                 if (data.short_url) {
-                    document.getElementById('result').innerHTML = `🚀 Your custom short link: <a href="${data.short_url}" target="_blank" id="shortUrl">${data.short_url}</a> <button onclick="copyToClipboard()">Copy</button>`;
+                    document.getElementById('result').innerHTML = `$&`;
+                    document.getElementById('result').style.display = 'inline-block';
                 } else {
                     showPopup("Error creating custom URL");
                 }
@@ -221,7 +223,7 @@
         }
     </script>
   <footer style="margin-top: 20px; text-align: center; color: white; font-size: 16px; background: rgba(0, 100, 0, 0.8); padding: 10px; border-radius: 5px;">
-        Made by Aaron Shemtov [DevOps]
+        Made by DevOps Aaron Shemtov
         <a href="https://t.me/ashemtov" target="_blank" style="color: #ffffff; font-weight: bold; text-decoration: underline;">Telegram</a> |
         <a href="https://linkedin.com/in/aaronshemtov" target="_blank" style="color: #ffffff; font-weight: bold; text-decoration: underline;">LinkedIn</a>
     </footer>
