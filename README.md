@@ -1,21 +1,13 @@
-# 1ms.my URL Shortener
+# u.1ms.my URL Shortener
 
 A **serverless URL shortener** built on AWS that generates both random and custom short URLs (8+ characters). The system uses Docker-based CI/CD on GitHub, pushing the Lambda container to AWS ECR.
 
+## Example Links
+
+- **Random Code:** [https://1ms.my/Cg8](https://1ms.my/Cg8)  
+- **Custom Code:** [https://1ms.my/examplelink](https://1ms.my/examplelink)
+
 ## Architecture
-
-flowchart LR
-    A((User)) -->|Enters Long URL| B[HTML/JS<br>S3 + CloudFront]
-    B -->|POST /shorten or /createcustom| C[API Gateway<br>(1ms.my)]
-    C -->|Invokes| D[Lambda (Go)]
-
-    D -->|Stores/Queries| E[DynamoDB<br>LongShortLinks]
-
-    D -->|Generates short_url| B
-    A -->|Visits short_url| C
-    C -->|GET /{code}| D
-    D -->|Redirect to original URL| A
-
 
 1. **Docker Container**  
    - Locally builds the Golang code for the Lambda function.  
@@ -29,7 +21,7 @@ flowchart LR
 3. **AWS ECR**  
    - Stores the Docker image for the Lambda function.
 
-4. **AWS Lambda (Golang)**  
+4. **AWS Lambda (Go)**  
    - Core logic for creating and resolving short URLs.  
    - Interacts with DynamoDB for storing/retrieving URL mappings.
 
@@ -89,4 +81,3 @@ flowchart LR
 
 5. **Jenkins Pipeline**  
    - Alternative or addition to GitHub Actions for more complex pipelines.  
-
