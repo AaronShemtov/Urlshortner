@@ -4,6 +4,19 @@ A **serverless URL shortener** built on AWS that generates both random and custo
 
 ## Architecture
 
+flowchart LR
+    A((User)) -->|Enters Long URL| B[HTML/JS<br>S3 + CloudFront]
+    B -->|POST /shorten or /createcustom| C[API Gateway<br>(1ms.my)]
+    C -->|Invokes| D[Lambda (Go)]
+
+    D -->|Stores/Queries| E[DynamoDB<br>LongShortLinks]
+
+    D -->|Generates short_url| B
+    A -->|Visits short_url| C
+    C -->|GET /{code}| D
+    D -->|Redirect to original URL| A
+
+
 1. **Docker Container**  
    - Locally builds the Golang code for the Lambda function.  
    - Pushed to **AWS ECR** via GitHub Actions on every commit to `main`.
